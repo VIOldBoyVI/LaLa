@@ -1,355 +1,280 @@
-from flask import Flask, request, jsonify, session
-from flask_cors import CORS
+from flask import Flask, render_template, request, jsonify
 import sqlite3
-import json
 import os
-from datetime import datetime
+import random
 
 app = Flask(__name__)
-app.secret_key = 'your-secret-key-here'  # Change this in production
-CORS(app)  # Enable CORS for frontend communication
+DATABASE = 'database.db'
 
-# Database setup
-DATABASE = 'quiz_game.db'
 
 def init_db():
-    """Initialize the database with required tables"""
+    """Инициализация базы данных"""
     conn = sqlite3.connect(DATABASE)
     cursor = conn.cursor()
-    
-    # Create table for game states
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS game_states (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            session_id TEXT UNIQUE NOT NULL,
-            game_state TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-    
-    # Create table for scores
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS scores (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            session_id TEXT NOT NULL,
-            player_name TEXT,
-            score INTEGER DEFAULT 0,
-            round INTEGER DEFAULT 1,
-            questions_answered INTEGER DEFAULT 0,
-            game_completed BOOLEAN DEFAULT FALSE,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-    
-    # Create table for questions
+
+    # Создание таблиц
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS questions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            round_number INTEGER NOT NULL,
-            theme TEXT NOT NULL,
-            question_text TEXT NOT NULL,
-            correct_answer TEXT NOT NULL,
-            points INTEGER DEFAULT 10,
+            round_num INTEGER,
+            question_text TEXT,
+            answer TEXT,
+            theme TEXT
+        )
+    ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS game_states (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id TEXT UNIQUE,
+            current_round INTEGER,
+            current_cell TEXT,
+            score INTEGER,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
-    
-    conn.commit()
-    conn.close()
 
-def get_db_connection():
-    """Get a database connection"""
-    conn = sqlite3.connect(DATABASE)
-    conn.row_factory = sqlite3.Row  # This allows us to access columns by name
-    return conn
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS scores (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id TEXT,
+            round_num INTEGER,
+            player_name TEXT,
+            score INTEGER,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
 
-def create_sample_questions():
-    """Create sample questions for the quiz game"""
-    conn = get_db_connection()
-    
-    # Sample questions for each round
-    sample_questions = [
-        # Round 1 - Music Genres
-        {"round_number": 1, "theme": "Музыкальные жанры", "question_text": "Какой музыкальный жанр ассоциируется с Мадонной?", "correct_answer": "поп", "points": 10},
-        {"round_number": 1, "theme": "Музыкальные жанры", "question_text": "Какой инструмент является символом джаза?", "correct_answer": "саксофон", "points": 10},
-        {"round_number": 1, "theme": "Музыкальные жанры", "question_text": "Какой жанр музыки возник в Южном Бронксе?", "correct_answer": "рэп", "points": 10},
-        {"round_number": 1, "theme": "Музыкальные жанры", "question_text": "Какой музыкальный жанр связан с регги?", "correct_answer": "ямаيكا", "points": 10},
-        {"round_number": 1, "theme": "Музыкальные жанры", "question_text": "Какой инструмент является основным в рок-группе?", "correct_answer": "гитара", "points": 10},
-        {"round_number": 1, "theme": "Музыкальные жанры", "question_text": "Какой музыкальный жанр использует синтезаторы?", "correct_answer": "электроника", "points": 10},
-        {"round_number": 1, "theme": "Музыкальные жанры", "question_text": "Какой жанр возник в Ливерпуле?", "correct_answer": "битлз", "points": 10},
-        {"round_number": 1, "theme": "Музыкальные жанры", "question_text": "Какой жанр музыки ассоциируется с блюз?", "correct_answer": "джаз", "points": 10},
-        {"round_number": 1, "theme": "Музыкальные жанры", "question_text": "Какой музыкальный жанр появился в 1970-х?", "correct_answer": "диско", "points": 10},
-        {"round_number": 1, "theme": "Музыкальные жанры", "question_text": "Какой жанр музыки ассоциируется с кантри?", "correct_answer": "америка", "points": 10},
-        
-        # Round 2 - Artists
-        {"round_number": 2, "theme": "Музыкальные исполнители", "question_text": "Кто является королем поп-музыки?", "correct_answer": "майкл джексон", "points": 10},
-        {"round_number": 2, "theme": "Музыкальные исполнители", "question_text": "Как звали королеву диско?", "correct_answer": "донна соммер", "points": 10},
-        {"round_number": 2, "theme": "Музыкальные исполнители", "question_text": "Какой исполнитель носит прозвище Thin White Duke?", "correct_answer": "дэвид боуи", "points": 10},
-        {"round_number": 2, "theme": "Музыкальные исполнители", "question_text": "Кто написал песню 'Bohemian Rhapsody'?", "correct_answer": "квін", "points": 10},
-        {"round_number": 2, "theme": "Музыкальные исполнители", "question_text": "Как звали певицу с прозвищем 'White Queen'?", "correct_answer": "джуди джексон", "points": 10},
-        {"round_number": 2, "theme": "Музыкальные исполнители", "question_text": "Какой рэпер носит прозвище 'Notorious B.I.G.'?", "correct_answer": "кристофер воллес", "points": 10},
-        {"round_number": 2, "theme": "Музыкальные исполнители", "question_text": "Кто является основателем группы The Beatles?", "correct_answer": "джон леннон", "points": 10},
-        {"round_number": 2, "theme": "Музыкальные исполнители", "question_text": "Как зовут королеву соула?", "correct_answer": "эрика фримен", "points": 10},
-        {"round_number": 2, "theme": "Музыкальные исполнители", "question_text": "Какой исполнитель носит прозвище 'King of Rock and Roll'?", "correct_answer": "элвис пресли", "points": 10},
-        {"round_number": 2, "theme": "Музыкальные исполнители", "question_text": "Кто из этих артистов носит прозвище 'Material Girl'?", "correct_answer": "мадонна", "points": 10},
-        
-        # Round 3 - Instruments
-        {"round_number": 3, "theme": "Музыкальные инструменты", "question_text": "Какой инструмент имеет педали?", "correct_answer": "фортепиано", "points": 10},
-        {"round_number": 3, "theme": "Музыкальные инструменты", "question_text": "Какой инструмент имеет 6 струн?", "correct_answer": "гитара", "points": 10},
-        {"round_number": 3, "theme": "Музыкальные инструменты", "question_text": "Какой инструмент используют в джазе?", "correct_answer": "саксофон", "points": 10},
-        {"round_number": 3, "theme": "Музыкальные инструменты", "question_text": "Какой инструмент имеет ударную головку?", "correct_answer": "барабан", "points": 10},
-        {"round_number": 3, "theme": "Музыкальные инструменты", "question_text": "Какой инструмент используется в классической музыке?", "correct_answer": "скрипка", "points": 10},
-        {"round_number": 3, "theme": "Музыкальные инструменты", "question_text": "Какой инструмент создает звук с помощью воздуха?", "correct_answer": "флейта", "points": 10},
-        {"round_number": 3, "theme": "Музыкальные инструменты", "question_text": "Какой инструмент имеет 88 клавиш?", "correct_answer": "пианино", "points": 10},
-        {"round_number": 3, "theme": "Музыкальные инструменты", "question_text": "Какой инструмент используют диджеи?", "correct_answer": "самплер", "points": 10},
-        {"round_number": 3, "theme": "Музыкальные инструменты", "question_text": "Какой инструмент используют в регги?", "correct_answer": "гитара", "points": 10},
-        {"round_number": 3, "theme": "Музыкальные инструменты", "question_text": "Какой инструмент используется в оркестре?", "correct_answer": "виолончель", "points": 10},
-        
-        # Round 4 - Music History
-        {"round_number": 4, "theme": "История музыки", "question_text": "В каком году вышел альбом 'Thriller'?", "correct_answer": "1982", "points": 10},
-        {"round_number": 4, "theme": "История музыки", "question_text": "Какой год считается началом рока?", "correct_answer": "1954", "points": 10},
-        {"round_number": 4, "theme": "История музыки", "question_text": "В каком году умер Фредди Меркьюри?", "correct_answer": "1991", "points": 10},
-        {"round_number": 4, "theme": "История музыки", "question_text": "Какой год считается началом джаза?", "correct_answer": "1910", "points": 10},
-        {"round_number": 4, "theme": "История музыки", "question_text": "В каком году вышел первый альбом The Beatles?", "correct_answer": "1963", "points": 10},
-        {"round_number": 4, "theme": "История музыки", "question_text": "Какой год связан с рождением хип-хопа?", "correct_answer": "1973", "points": 10},
-        {"round_number": 4, "theme": "История музыки", "question_text": "В каком году вышел альбом 'Abbey Road'?", "correct_answer": "1969", "points": 10},
-        {"round_number": 4, "theme": "История музыки", "question_text": "Какой год связан с фестивалем Вудсток?", "correct_answer": "1969", "points": 10},
-        {"round_number": 4, "theme": "История музыки", "question_text": "В каком году вышел альбом 'Dark Side of the Moon'?", "correct_answer": "1973", "points": 10},
-        {"round_number": 4, "theme": "История музыки", "question_text": "Какой год связан с смертью Джими Хендрикса?", "correct_answer": "1970", "points": 10},
-        
-        # Round 5 - Final Round - Mixed
-        {"round_number": 5, "theme": "Музыкальный микс", "question_text": "Какой жанр музыки ассоциируется с Битлз?", "correct_answer": "рок", "points": 10},
-        {"round_number": 5, "theme": "Музыкальный микс", "question_text": "Какой инструмент использовал Игорь Стравинский?", "correct_answer": "оркестр", "points": 10},
-        {"round_number": 5, "theme": "Музыкальный микс", "question_text": "Как звали композитора 'Времена года'?", "correct_answer": "вести", "points": 10},
-        {"round_number": 5, "theme": "Музыкальный микс", "question_text": "Какой год связан с выходом 'Never Mind the Bollocks'?", "correct_answer": "1977", "points": 10},
-        {"round_number": 5, "theme": "Музыкальный микс", "question_text": "Какой музыкальный жанр ассоциируется с Тупаком?", "correct_answer": "рэп", "points": 10},
-        {"round_number": 5, "theme": "Музыкальный микс", "question_text": "Какой инструмент использовал Яннис Кризанакис?", "correct_answer": "оркестр", "points": 10},
-        {"round_number": 5, "theme": "Музыкальный микс", "question_text": "Какой жанр музыки ассоциируется с Майлзом Дэвисом?", "correct_answer": "джаз", "points": 10},
-        {"round_number": 5, "theme": "Музыкальный микс", "question_text": "Как зовут короля рока?", "correct_answer": "элвис", "points": 10},
-        {"round_number": 5, "theme": "Музыкальный микс", "question_text": "Какой инструмент использовал Иегуди Менухин?", "correct_answer": "скрипка", "points": 10},
-        {"round_number": 5, "theme": "Музыкальный микс", "question_text": "Какой жанр музыки ассоциируется с Бобом Марли?", "correct_answer": "регги", "points": 10},
+    # Добавление вопросов в базу данных
+    questions = [
+        (1, "Какое музыкальное направление считается предшественником рока?", "Блюз", "Музыкальные жанры"),
+        (1, "Кто считается королем рок-н-ролла?", "Элвис Пресли", "Музыкальные жанры"),
+        (1, "Как называется группа, выпустившая альбом 'Dark Side of the Moon'?", "Pink Floyd", "Музыкальные жанры"),
+        (1, "Как звали вокалиста группы Queen?", "Фредди Меркьюри", "Музыкальные жанры"),
+        (1, "Какой инструмент использовал Игорь Стравинский в 'Весне Священной'?", "Оркестр", "Музыкальные жанры"),
+        (1, "Какой музыкальный инструмент является самым большим в оркестре?", "Контрабас", "Музыкальные жанры"),
+        (1, "Как называется стиль музыки, происходящий из Ямайки?", "Регги", "Музыкальные жанры"),
+        (1, "Кто написал оперу 'Волшебная флейта'?", "Моцарт", "Музыкальные жанры"),
+        (1, "Как называется танец в ¾ времени?", "Вальс", "Музыкальные жанры"),
+        (1, "Какой инструмент использовал Бах в своих произведениях?", "Орган", "Музыкальные жанры"),
+        (1, "Какой жанр музыки связан с джазом?", "Блюз", "Музыкальные жанры"),
+        (1, "Какой инструмент используется в стиле 'караоке'?", "Клавишные", "Музыкальные жанры"),
+        (1, "Какой стиль музыки был популярен в 80-х?", "Поп", "Музыкальные жанры"),
+        (1, "Какой инструмент является основным в рок-группе?", "Гитара", "Музыкальные жанры"),
+        (1, "Какой музыкальный стиль ассоциируется с Бобом Марли?", "Регги", "Музыкальные жанры"),
+        (1, "Какой инструмент использовал Сергей Рахманинов?", "Фортепиано", "Музыкальные жанры"),
+        (1, "Какой стиль музыки использует синтезаторы?", "Электроника", "Музыкальные жанры"),
+        (1, "Какой музыкальный жанр возник в Новом Орлеане?", "Джаз", "Музыкальные жанры"),
+        (1, "Как называется группа, исполняющая 'Bohemian Rhapsody'?", "Queen", "Музыкальные жанры"),
+        (1, "Какой инструмент использовал Пётр Чайковский?", "Скрипка", "Музыкальные жанры"),
+        (2, "Кто является основателем группы The Beatles?", "Джон Леннон", "Музыкальные исполнители"),
+        (2, "Как звали солистку группы ABBA?", "Агнета Фельтског", "Музыкальные исполнители"),
+        (2, "Как зовут солиста группы AC/DC?", "Бон Сcott", "Музыкальные исполнители"),
+        (2, "Какой псевдоним у Роберта Зоммера?", "Боб Марли", "Музыкальные исполнители"),
+        (2, "Как зовут солиста группы Led Zeppelin?", "Роберт Плант", "Музыкальные исполнители"),
+        (2, "Как зовут солиста группы Deep Purple?", "Иэн Гиллан", "Музыкальные исполнители"),
+        (2, "Как зовут солиста группы Black Sabbath?", "Оззи Осборн", "Музыкальные исполнители"),
+        (2, "Как зовут солиста группы The Rolling Stones?", "Мик Джаггер", "Музыкальные исполнители"),
+        (2, "Как зовут солиста группы The Who?", "Роджер Долтри", "Музыкальные исполнители"),
+        (2, "Как зовут солиста группы The Doors?", "Джим Моррисон", "Музыкальные исполнители"),
+        (2, "Как зовут солиста группы The Eagles?", "Гленн Фрай", "Музыкальные исполнители"),
+        (2, "Как зовут солиста группы Lynyrd Skynyrd?", "Ронни Ван Зант", "Музыкальные исполнители"),
+        (2, "Как зовут солиста группы ZZ Top?", "Билли Гиббонс", "Музыкальные исполнители"),
+        (2, "Как зовут солиста группы Kiss?", "Пол Стэйн", "Музыкальные исполнители"),
+        (2, "Как зовут солиста группы Rush?", "Гэддзи Ли", "Музыкальные исполнители"),
+        (2, "Как зовут солиста группы Van Halen?", "Дэвид Ли Рот", "Музыкальные исполнители"),
+        (2, "Как зовут солиста группы Foreigner?", "Лу Грамм", "Музыкальные исполнители"),
+        (2, "Как зовут солиста группы Journey?", "Стиви Перри", "Музыкальные исполнители"),
+        (2, "Как зовут солиста группы Boston?", "Брюс Куланж", "Музыкальные исполнители"),
+        (2, "Как зовут солиста группы Styx?", "Деннис ДеЯнг", "Музыкальные исполнители"),
+        (3, "Какой инструмент имеет 6 струн?", "Гитара", "Музыкальные инструменты"),
+        (3, "Какой инструмент имеет педали?", "Фортепиано", "Музыкальные инструменты"),
+        (3, "Какой инструмент используется в джазе?", "Саксофон", "Музыкальные инструменты"),
+        (3, "Какой инструмент используется в оркестре?", "Скрипка", "Музыкальные инструменты"),
+        (3, "Какой инструмент используется в рок-группе?", "Ударные", "Музыкальные инструменты"),
+        (3, "Какой инструмент используется в классической музыке?", "Виолончель", "Музыкальные инструменты"),
+        (3, "Какой инструмент используется в блюзе?", "Тромбон", "Музыкальные инструменты"),
+        (3, "Какой инструмент используется в регги?", "Конга", "Музыкальные инструменты"),
+        (3, "Какой инструмент используется в фолк-музыке?", "Мандолина", "Музыкальные инструменты"),
+        (3, "Какой инструмент используется в электронной музыке?", "Синтезатор", "Музыкальные инструменты"),
+        (3, "Какой инструмент используется в народной музыке?", "Балалайка", "Музыкальные инструменты"),
+        (3, "Какой инструмент используется в рэпе?", "Сэмплер", "Музыкальные инструменты"),
+        (3, "Какой инструмент используется в опере?", "Арфа", "Музыкальные инструменты"),
+        (3, "Какой инструмент используется в рок-н-ролле?", "Саксофон", "Музыкальные инструменты"),
+        (3, "Какой инструмент используется в хип-хопе?", "Драм-машина", "Музыкальные инструменты"),
+        (3, "Какой инструмент используется в фанке?", "Бас-гитара", "Музыкальные инструменты"),
+        (3, "Какой инструмент используется в соуле?", "Труба", "Музыкальные инструменты"),
+        (3, "Какой инструмент используется в кантри?", "Педальная сталь", "Музыкальные инструменты"),
+        (3, "Какой инструмент используется в латиноамериканской музыке?", "Маракас", "Музыкальные инструменты"),
+        (3, "Какой инструмент используется в фолк-роке?", "Укулеле", "Музыкальные инструменты"),
+        (4, "Когда был изобретён первый музыкальный инструмент?", "35000 лет назад", "Музыкальная история"),
+        (4, "Кто написал 'Лунную сонату'?", "Бетховен", "Музыкальная история"),
+        (4, "Какой музыкальный инструмент был изобретён первым?", "Барабан", "Музыкальная история"),
+        (4, "Когда появился первый граммофон?", "1877", "Музыкальная история"),
+        (4, "Кто основал компанию Fender?", "Лео Фендер", "Музыкальная история"),
+        (4, "Когда была основана компания Gibson?", "1902", "Музыкальная история"),
+        (4, "Кто изобрёл первый синтезатор?", "Роберт Мууг", "Музыкальная история"),
+        (4, "Когда был изобретён первый синтезатор?", "1964", "Музыкальная история"),
+        (4, "Кто написал 'Лето' в стиле вивальди?", "Антонио Вивальди", "Музыкальная история"),
+        (4, "Когда был изобретён первый музыкальный автомат?", "1890", "Музыкальная история"),
+        (4, "Кто написал 'Реквием'?", "Моцарт", "Музыкальная история"),
+        (4, "Когда был изобретён первый пианино?", "1709", "Музыкальная история"),
+        (4, "Кто изобрёл первый пианино?", "Бартоломео Кристофори", "Музыкальная история"),
+        (4, "Когда была основана первая опера?", "1637", "Музыкальная история"),
+        (4, "Кто написал первую оперу?", "Клаудио Монтеверди", "Музыкальная история"),
+        (4, "Когда был изобретён первый гитар?", "1500", "Музыкальная история"),
+        (4, "Кто написал 'Симфонию №9'?", "Бетховен", "Музыкальная история"),
+        (4, "Когда была написана 'Симфония №9'?", "1824", "Музыкальная история"),
+        (4, "Кто изобрёл первый виолончель?", "Андреа Аматьи", "Музыкальная история"),
+        (4, "Когда был изобретён первый виолончель?", "1600", "Музыкальная история"),
+        (5, "Какой музыкальный инструмент используется в 'Bohemian Rhapsody'?", "Фортепиано", "Смешанные темы"),
+        (5, "Какой стиль музыки использовался в 'Thriller'?", "Поп", "Смешанные темы"),
+        (5, "Какой инструмент использовался в 'Stairway to Heaven'?", "Гитара", "Смешанные темы"),
+        (5, "Какой стиль музыки использовался в 'Imagine'?", "Поп", "Смешанные темы"),
+        (5, "Какой инструмент использовался в 'Hotel California'?", "Гитара", "Смешанные темы"),
+        (5, "Какой стиль музыки использовался в 'Like a Rolling Stone'?", "Фолк-рок", "Смешанные темы"),
+        (5, "Какой инструмент использовался в 'Yesterday'?", "Струнные", "Смешанные темы"),
+        (5, "Какой стиль музыки использовался в 'Hey Jude'?", "Поп", "Смешанные темы"),
+        (5, "Какой инструмент использовался в 'Sweet Child O' Mine'?", "Гитара", "Смешанные темы"),
+        (5, "Какой стиль музыки использовался в 'Billie Jean'?", "Поп", "Смешанные темы")
     ]
-    
-    # Insert questions if they don't exist yet
-    for q in sample_questions:
-        cursor = conn.cursor()
-        cursor.execute('''
-            INSERT OR IGNORE INTO questions (round_number, theme, question_text, correct_answer, points)
-            VALUES (?, ?, ?, ?, ?)
-        ''', (q['round_number'], q['theme'], q['question_text'], q['correct_answer'], q['points']))
-    
+
+    cursor.executemany('INSERT OR IGNORE INTO questions (round_num, question_text, answer, theme) VALUES (?, ?, ?, ?)',
+                       questions)
+
     conn.commit()
     conn.close()
 
-@app.route('/api/init-game', methods=['POST'])
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+
+@app.route('/api/init_game', methods=['POST'])
 def init_game():
-    """Initialize a new game session"""
+    session_id = request.json.get('session_id')
+    conn = sqlite3.connect(DATABASE)
+    cursor = conn.cursor()
+
+    # Проверяем, существует ли уже игра с этим session_id
+    cursor.execute('SELECT * FROM game_states WHERE session_id = ?', (session_id,))
+    existing_game = cursor.fetchone()
+
+    if existing_game:
+        # Если игра существует, возвращаем текущее состояние
+        current_round = existing_game[2]
+        current_cell = existing_game[3]
+        score = existing_game[4]
+    else:
+        # Иначе инициализируем новую игру
+        current_round = 1
+        current_cell = None
+        score = 0
+
+        # Сохраняем начальное состояние игры
+        cursor.execute(
+            'INSERT OR REPLACE INTO game_states (session_id, current_round, current_cell, score) VALUES (?, ?, ?, ?)',
+            (session_id, current_round, current_cell, score))
+
+    conn.commit()
+    conn.close()
+
+    return jsonify({
+        'session_id': session_id,
+        'current_round': current_round,
+        'current_cell': current_cell,
+        'score': score
+    })
+
+
+@app.route('/api/get_question', methods=['POST'])
+def get_question():
     data = request.json
-    session_id = data.get('session_id', '')
-    
-    if not session_id:
-        return jsonify({'error': 'Session ID is required'}), 400
-    
-    # Create a default game state
-    default_state = {
-        'currentRound': 1,
-        'score': 0,
-        'openedCells': [],
-        'questionsUsed': [],
-        'isBreak': False,
-        'board': [],
-        'playerName': data.get('player_name', 'Игрок')
-    }
-    
-    # Save the game state to the database
-    conn = get_db_connection()
-    try:
-        cursor = conn.cursor()
-        cursor.execute('''
-            INSERT OR REPLACE INTO game_states (session_id, game_state)
-            VALUES (?, ?)
-        ''', (session_id, json.dumps(default_state)))
-        
-        # Create score entry
-        cursor.execute('''
-            INSERT INTO scores (session_id, player_name, score, round)
-            VALUES (?, ?, ?, ?)
-        ''', (session_id, default_state['playerName'], 0, 1))
-        
-        conn.commit()
-        return jsonify({'success': True, 'game_state': default_state})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-    finally:
-        conn.close()
+    session_id = data.get('session_id')
+    round_num = data.get('round_num')
 
-@app.route('/api/load-game/<session_id>', methods=['GET'])
-def load_game(session_id):
-    """Load an existing game session"""
-    conn = get_db_connection()
-    try:
-        cursor = conn.cursor()
-        cursor.execute('SELECT game_state FROM game_states WHERE session_id = ?', (session_id,))
-        row = cursor.fetchone()
-        
-        if row:
-            game_state = json.loads(row['game_state'])
-            return jsonify({'success': True, 'game_state': game_state})
-        else:
-            return jsonify({'error': 'Game session not found'}), 404
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-    finally:
-        conn.close()
+    conn = sqlite3.connect(DATABASE)
+    cursor = conn.cursor()
 
-@app.route('/api/save-game', methods=['POST'])
-def save_game():
-    """Save the current game state"""
-    data = request.json
-    session_id = data.get('session_id', '')
-    game_state = data.get('game_state', {})
-    
-    if not session_id:
-        return jsonify({'error': 'Session ID is required'}), 400
-    
-    conn = get_db_connection()
-    try:
-        cursor = conn.cursor()
-        cursor.execute('''
-            INSERT OR REPLACE INTO game_states (session_id, game_state, updated_at)
-            VALUES (?, ?, CURRENT_TIMESTAMP)
-        ''', (session_id, json.dumps(game_state)))
-        
-        # Update score in scores table
-        cursor.execute('''
-            UPDATE scores 
-            SET score = ?, round = ?, questions_answered = ?
-            WHERE session_id = ?
-        ''', (game_state.get('score', 0), game_state.get('currentRound', 1), 
-              len(game_state.get('questionsUsed', [])), session_id))
-        
-        conn.commit()
-        return jsonify({'success': True})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-    finally:
-        conn.close()
+    # Получаем случайный вопрос для текущего раунда
+    cursor.execute('SELECT id, question_text FROM questions WHERE round_num = ? ORDER BY RANDOM() LIMIT 1',
+                   (round_num,))
+    question = cursor.fetchone()
 
-@app.route('/api/get-question/<int:question_id>', methods=['GET'])
-def get_question(question_id):
-    """Get a specific question by ID"""
-    conn = get_db_connection()
-    try:
-        cursor = conn.cursor()
-        cursor.execute('SELECT * FROM questions WHERE id = ?', (question_id,))
-        row = cursor.fetchone()
-        
-        if row:
-            question = {
-                'id': row['id'],
-                'round_number': row['round_number'],
-                'theme': row['theme'],
-                'question_text': row['question_text'],
-                'points': row['points']
-            }
-            return jsonify({'success': True, 'question': question})
-        else:
-            return jsonify({'error': 'Question not found'}), 404
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-    finally:
-        conn.close()
+    conn.close()
 
-@app.route('/api/check-answer', methods=['POST'])
+    if question:
+        return jsonify({'question_id': question[0], 'question_text': question[1]})
+    else:
+        return jsonify({'error': 'No questions available for this round'}), 404
+
+
+@app.route('/api/check_answer', methods=['POST'])
 def check_answer():
-    """Check if the provided answer is correct"""
     data = request.json
     question_id = data.get('question_id')
-    provided_answer = data.get('answer', '').lower().strip()
-    
-    conn = get_db_connection()
-    try:
-        cursor = conn.cursor()
-        cursor.execute('SELECT correct_answer FROM questions WHERE id = ?', (question_id,))
-        row = cursor.fetchone()
-        
-        if row:
-            correct_answer = row['correct_answer'].lower().strip()
-            is_correct = provided_answer == correct_answer or correct_answer in provided_answer or provided_answer in correct_answer
-            
-            return jsonify({
-                'success': True,
-                'is_correct': is_correct,
-                'correct_answer': row['correct_answer']
-            })
-        else:
-            return jsonify({'error': 'Question not found'}), 404
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-    finally:
-        conn.close()
+    user_answer = data.get('answer').strip().lower()
 
-@app.route('/api/get-round-questions/<int:round_number>', methods=['GET'])
-def get_round_questions(round_number):
-    """Get all questions for a specific round"""
-    conn = get_db_connection()
-    try:
-        cursor = conn.cursor()
-        cursor.execute('''
-            SELECT id, round_number, theme, question_text, points 
-            FROM questions 
-            WHERE round_number = ?
-        ''', (round_number,))
-        
-        questions = []
-        for row in cursor.fetchall():
-            questions.append({
-                'id': row['id'],
-                'round_number': row['round_number'],
-                'theme': row['theme'],
-                'question_text': row['question_text'],
-                'points': row['points']
-            })
-        
-        return jsonify({'success': True, 'questions': questions})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-    finally:
-        conn.close()
+    conn = sqlite3.connect(DATABASE)
+    cursor = conn.cursor()
 
-@app.route('/api/get-leaderboard', methods=['GET'])
-def get_leaderboard():
-    """Get the top scores"""
-    conn = get_db_connection()
-    try:
-        cursor = conn.cursor()
-        cursor.execute('''
-            SELECT player_name, score, round, created_at 
-            FROM scores 
-            ORDER BY score DESC 
-            LIMIT 10
-        ''')
-        
-        leaderboard = []
-        for row in cursor.fetchall():
-            leaderboard.append({
-                'player_name': row['player_name'],
-                'score': row['score'],
-                'round': row['round'],
-                'created_at': row['created_at']
-            })
-        
-        return jsonify({'success': True, 'leaderboard': leaderboard})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-    finally:
-        conn.close()
+    # Получаем правильный ответ
+    cursor.execute('SELECT answer FROM questions WHERE id = ?', (question_id,))
+    correct_answer = cursor.fetchone()
+
+    conn.close()
+
+    if correct_answer:
+        correct = correct_answer[0].strip().lower() == user_answer
+        return jsonify({'correct': correct, 'correct_answer': correct_answer[0]})
+    else:
+        return jsonify({'error': 'Question not found'}), 404
+
+
+@app.route('/api/save_state', methods=['POST'])
+def save_state():
+    data = request.json
+    session_id = data.get('session_id')
+    current_round = data.get('current_round')
+    current_cell = data.get('current_cell')
+    score = data.get('score')
+
+    conn = sqlite3.connect(DATABASE)
+    cursor = conn.cursor()
+
+    cursor.execute(
+        'INSERT OR REPLACE INTO game_states (session_id, current_round, current_cell, score) VALUES (?, ?, ?, ?)',
+        (session_id, current_round, current_cell, score))
+
+    conn.commit()
+    conn.close()
+
+    return jsonify({'status': 'success'})
+
+
+@app.route('/api/load_state', methods=['GET'])
+def load_state():
+    session_id = request.args.get('session_id')
+
+    conn = sqlite3.connect(DATABASE)
+    cursor = conn.cursor()
+
+    cursor.execute('SELECT current_round, current_cell, score FROM game_states WHERE session_id = ?', (session_id,))
+    game_state = cursor.fetchone()
+
+    conn.close()
+
+    if game_state:
+        return jsonify({
+            'current_round': game_state[0],
+            'current_cell': game_state[1],
+            'score': game_state[2]
+        })
+    else:
+        return jsonify({'error': 'No saved state found'}), 404
+
 
 if __name__ == '__main__':
-    # Initialize database and create sample questions
     init_db()
-    create_sample_questions()
-    
-    # Run the Flask app
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=True)

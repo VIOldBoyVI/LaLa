@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ЛА-ЛА-ГЕЙМ</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .header {
+            width: 100%;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        h2 {
+            color: #666;
+            margin-top: 0;
+        }
+
+        .round-info {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background-color: #fff;
+            padding: 10px 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            font-weight: bold;
+        }
+
+        .game-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(11, 40px);
+            grid-template-rows: repeat(11, 40px);
+            gap: 2px;
+            background-color: #333;
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        .cell {
+            width: 40px;
+            height: 40px;
+            background-color: #666;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-weight: bold;
+            color: white;
+            user-select: none;
+        }
+
+        .cell.revealed {
+            background-color: #ccc;
+            color: black;
+        }
+
+        .cell-header {
+            background-color: #999;
+            cursor: default;
+        }
+
+        .question-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.7);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            width: 80%;
+            max-width: 500px;
+            text-align: center;
+        }
+
+        .modal-content input {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            font-size: 16px;
+        }
+
+        .modal-content button {
+            padding: 10px 20px;
+            font-size: 16px;
+            margin: 5px;
+        }
+
+        .score-display {
+            font-size: 18px;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        .break-screen {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.9);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 36px;
+            text-align: center;
+        }
+
+        .break-timer {
+            font-size: 24px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>ЛА-ЛА-ГЕЙМ</h1>
+        <h2>Викторина с элементами караоке</h2>
+    </div>
+
+    <div class="round-info" id="roundInfo">Раунд 1</div>
+
+    <div class="game-container">
+        <div class="grid-container" id="grid"></div>
+        <div class="score-display" id="scoreDisplay">Счёт: 0</div>
+    </div>
+
+    <div class="question-modal" id="questionModal">
+        <div class="modal-content">
+            <h3 id="questionText">Вопрос будет здесь</h3>
+            <input type="text" id="answerInput" placeholder="Введите ваш ответ">
+            <br>
+            <button onclick="submitAnswer()">Ответить</button>
+            <button onclick="closeModal()">Закрыть</button>
+        </div>
+    </div>
+
+    <div class="break-screen" id="breakScreen">
+        <div>
+            <h2>Перерыв</h2>
+            <div class="break-timer" id="breakTimer">10:00</div>
+        </div>
+    </div>
+
+    <script>
+        // Генерация содержимого сетки
+        const grid = document.getElementById('grid');
+        const cells = [];
+        let sessionId = localStorage.getItem('sessionId') || generateSessionId();
+        let currentRound = 1;
+        let score = 0;
+        let gameBoard = [];
+        let revealedCells = new Set();
+        let currentQuestionId = null;
+        let roundQuestions = [];
+        let roundCounters = [0, 20, 20, 20, 20, 10]; // Количество вопросов в каждом раунде
+        let totalRevealedInRound = 0;
+        let isBreakActive = false;
+        let breakInterval = null;
+
+        // Сохраняем session ID в localStorage
+        localStorage.setItem('sessionId', sessionId);
+
+        // Инициализация игры
+        initGame();
+
+        function generateSessionId() {
+            return 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        }
+
+        async function initGame() {
+            try {
+                const response = await fetch('/api/init_game', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ session_id: sessionId })
+                });
+
+                const data = await response.json();
+
+                currentRound = data.current_round || 1;
+                score = data.score || 0;
+                document.getElementById('scoreDisplay').textContent = `Счёт: ${score}`;
+                updateRoundInfo();
+
+                // Загружаем состояние игры
+                await loadGameState();
+
+                createBoard();
+            } catch (error) {
+                console.error('Error initializing game:', error);
+            }
+        }
+
+        async function loadGameState() {
+            try {
+                const response = await fetch(`/api/load_state?session_id=${sessionId}`);
+                const data = await response.json();
+
+                if (data.current_round) {
+                    currentRound = data.current_round;
+                    score = data.score || 0;
+                    document.getElementById('scoreDisplay').textContent = `Счёт: ${score}`;
+                    updateRoundInfo();
+                }
+            } catch (error) {
+                console.error('Error loading game state:', error);
+            }
+        }
+
+        function createBoard() {
+            grid.innerHTML = '';
+            gameBoard = [];
+            revealedCells.clear();
+
+            // Очистка сетки
+            for (let i = 0; i < 11; i++) {
+                for (let j = 0; j < 11; j++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+
+                    if (i === 0 && j === 0) {
+                        // Пустая ячейка в углу
+                        cell.classList.add('cell-header');
+                        cell.textContent = '';
+                    } else if (i === 0) {
+                        // Заголовки столбцов (A-J)
+                        cell.classList.add('cell-header');
+                        cell.textContent = String.fromCharCode(64 + j);
+                    } else if (j === 0) {
+                        // Заголовки строк (1-10)
+                        cell.classList.add('cell-header');
+                        cell.textContent = i;
+                    } else {
+                        // Игровые ячейки
+                        const cellId = `${String.fromCharCode(64 + j)}-${i}`;
+                        cell.dataset.id = cellId;
+                        cell.addEventListener('click', () => handleCellClick(cellId, i, j));
+
+                        // Генерация содержимого ячейки
+                        let cellContent;
+                        if (Math.random() < 0.9) {
+                            // 90% шанс на номер вопроса
+                            cellContent = Math.floor(Math.random() * 50) + 1;
+                        } else {
+                            // 10% шанс на символ
+                            const symbols = ['★', '♪', '♫', '♬', '♭', '♮', '♯', '✓', '✗'];
+                            cellContent = symbols[Math.floor(Math.random() * symbols.length)];
+                        }
+
+                        gameBoard.push({
+                            id: cellId,
+                            row: i,
+                            col: j,
+                            content: cellContent,
+                            element: cell
+                        });
+                    }
+
+                    grid.appendChild(cell);
+                }
+            }
+        }
+
+        function handleCellClick(cellId, row, col) {
+            if (isBreakActive || revealedCells.has(cellId)) return;
+
+            const cell = gameBoard.find(c => c.id === cellId);
+            if (!cell) return;
+
+            // Проверяем, не является ли это перерывом
+            if ((currentRound === 2 && totalRevealedInRound >= 20) ||
+                (currentRound === 4 && totalRevealedInRound >= 20)) {
+                startBreak();
+                return;
+            }
+
+            // Открываем ячейку
+            cell.element.textContent = cell.content;
+            cell.element.classList.add('revealed');
+            revealedCells.add(cellId);
+            totalRevealedInRound++;
+
+            // Проверяем, является ли содержимое вопросом
+            if (typeof cell.content === 'number') {
+                askQuestion(cell.content);
+            }
+
+            // Проверяем, завершён ли раунд
+            if (totalRevealedInRound >= roundCounters[currentRound]) {
+                nextRound();
+            }
+
+            // Сохраняем состояние игры
+            saveGameState();
+        }
+
+        async function askQuestion(questionNumber) {
+            try {
+                const response = await fetch('/api/get_question', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        session_id: sessionId,
+                        round_num: currentRound
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.question_id) {
+                    currentQuestionId = data.question_id;
+                    document.getElementById('questionText').textContent = data.question_text;
+                    openModal();
+                }
+            } catch (error) {
+                console.error('Error getting question:', error);
+            }
+        }
+
+        async function submitAnswer() {
+            const answer = document.getElementById('answerInput').value.trim();
+            if (!answer || !currentQuestionId) return;
+
+            try {
+                const response = await fetch('/api/check_answer', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        question_id: currentQuestionId,
+                        answer: answer
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.correct) {
+                    score += 10;
+                    document.getElementById('scoreDisplay').textContent = `Счёт: ${score}`;
+                }
+
+                closeModal();
+            } catch (error) {
+                console.error('Error checking answer:', error);
+            }
+        }
+
+        function openModal() {
+            document.getElementById('questionModal').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('questionModal').style.display = 'none';
+            document.getElementById('answerInput').value = '';
+            currentQuestionId = null;
+        }
+
+        function updateRoundInfo() {
+            const roundInfo = document.getElementById('roundInfo');
+            if (isBreakActive) {
+                roundInfo.textContent = 'Перерыв';
+            } else {
+                roundInfo.textContent = `Раунд ${currentRound}`;
+            }
+        }
+
+        function nextRound() {
+            currentRound++;
+            totalRevealedInRound = 0;
+
+            if (currentRound > 5) {
+                // Игра завершена
+                alert(`Игра окончена! Ваш финальный счёт: ${score}`);
+                return;
+            }
+
+            updateRoundInfo();
+            createBoard();
+
+            // Проверяем, нужно ли делать перерыв
+            if (currentRound === 3 || currentRound === 5) {
+                startBreak();
+            }
+
+            saveGameState();
+        }
+
+        function startBreak() {
+            isBreakActive = true;
+            updateRoundInfo();
+            document.getElementById('breakScreen').style.display = 'flex';
+
+            let timeLeft = 600; // 10 минут в секундах
+
+            breakInterval = setInterval(() => {
+                const minutes = Math.floor(timeLeft / 60);
+                const seconds = timeLeft % 60;
+                document.getElementById('breakTimer').textContent =
+                    `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+
+                if (timeLeft <= 0) {
+                    clearInterval(breakInterval);
+                    endBreak();
+                }
+                timeLeft--;
+            }, 1000);
+        }
+
+        function endBreak() {
+            isBreakActive = false;
+            document.getElementById('breakScreen').style.display = 'none';
+            updateRoundInfo();
+
+            if (breakInterval) {
+                clearInterval(breakInterval);
+            }
+        }
+
+        async function saveGameState() {
+            try {
+                await fetch('/api/save_state', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        session_id: sessionId,
+                        current_round: currentRound,
+                        current_cell: null, // We don't need to track individual cells
+                        score: score
+                    })
+                });
+            } catch (error) {
+                console.error('Error saving game state:', error);
+            }
+        }
+    </script>
+</body>
+</html>
