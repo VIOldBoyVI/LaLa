@@ -1,15 +1,31 @@
 from flask import Flask, render_template, request, jsonify
+from flask_cors import CORS
 import sqlite3
 import os
 import random
 
 app = Flask(__name__)
+CORS(app)  # Enable CORS for all routes
 DATABASE = 'database.db'
+
+
+def get_db_connection():
+    """Create a database connection with proper error handling"""
+    try:
+        conn = sqlite3.connect(DATABASE)
+        conn.row_factory = sqlite3.Row  # This allows us to access columns by name
+        return conn
+    except sqlite3.Error as e:
+        print(f"Database connection error: {e}")
+        return None
 
 
 def init_db():
     """Инициализация базы данных"""
-    conn = sqlite3.connect(DATABASE)
+    conn = get_db_connection()
+    if conn is None:
+        print("Failed to connect to database for initialization")
+        return
     cursor = conn.cursor()
 
     # Создание таблиц
@@ -151,10 +167,22 @@ def index():
     return render_template('index.html')
 
 
+@app.route('/quiz')
+def quiz():
+    return render_template('quiz_game.html')
+
+
+@app.route('/quiz-game')
+def quiz_game():
+    return render_template('quiz-game.html')
+
+
 @app.route('/api/init_game', methods=['POST'])
 def init_game():
     session_id = request.json.get('session_id')
-    conn = sqlite3.connect(DATABASE)
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({'error': 'Database connection failed'}), 500
     cursor = conn.cursor()
 
     # Проверяем, существует ли уже игра с этим session_id
@@ -194,7 +222,9 @@ def get_question():
     session_id = data.get('session_id')
     round_num = data.get('round_num')
 
-    conn = sqlite3.connect(DATABASE)
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({'error': 'Database connection failed'}), 500
     cursor = conn.cursor()
 
     # Получаем случайный вопрос для текущего раунда
@@ -216,7 +246,9 @@ def check_answer():
     question_id = data.get('question_id')
     user_answer = data.get('answer').strip().lower()
 
-    conn = sqlite3.connect(DATABASE)
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({'error': 'Database connection failed'}), 500
     cursor = conn.cursor()
 
     # Получаем правильный ответ
@@ -240,7 +272,9 @@ def save_state():
     current_cell = data.get('current_cell')
     score = data.get('score')
 
-    conn = sqlite3.connect(DATABASE)
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({'error': 'Database connection failed'}), 500
     cursor = conn.cursor()
 
     cursor.execute(
@@ -257,7 +291,9 @@ def save_state():
 def load_state():
     session_id = request.args.get('session_id')
 
-    conn = sqlite3.connect(DATABASE)
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({'error': 'Database connection failed'}), 500
     cursor = conn.cursor()
 
     cursor.execute('SELECT current_round, current_cell, score FROM game_states WHERE session_id = ?', (session_id,))
