@@ -1,30 +1,5 @@
 ```
-# Dependencies
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-
-# Environment variables
-.env
-.env.local
-*.env.*
-
-# Database
-src/database.db
-
-# Logs
-*.log
-
-# Editor/IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*.tmp
-
-# Build/dist
-dist/
-build/
-*.egg-info/
+# Database files
+*.db
+database.db
 ```
