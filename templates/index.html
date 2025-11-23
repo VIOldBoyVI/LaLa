@@ -148,6 +148,21 @@
             color: white;
             font-weight: bold;
             text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        #currentPlayerSelect {
+            padding: 10px 15px;
+            font-size: 1.1rem;
+            border: none;
+            border-radius: 8px;
+            background-color: white;
+            width: 200px;
+            text-align: center;
         }
 
         .input-section {
@@ -482,6 +497,12 @@
         </div>
 
         <div class="controls">
+            <div class="current-player">
+                <label for="currentPlayerSelect">Текущий игрок:</label>
+                <select id="currentPlayerSelect">
+                    <!-- Options will be populated by JavaScript -->
+                </select>
+            </div>
 
             <div class="input-section">
                 <div class="coordinate-input">
