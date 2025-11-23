@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ЛА-ЛА-ГЕЙМ - Викторина с элементами караоке</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Arial', sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #ff8c00, #ff6600, #ff4500);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        h1 {
+            font-size: 3rem;
+            margin-bottom: 10px;
+        }
+
+        h2 {
+            font-size: 1.8rem;
+        }
+
+        .game-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 30px;
+            max-width: 1000px;
+            width: 100%;
+        }
+
+        .game-board {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 10px;
+        }
+
+        .row-labels {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .row-label {
+            height: 60px;
+            width: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: white;
+            background-color: rgba(0, 0, 0, 0.3);
+        }
+
+        .board {
+            display: grid;
+            grid-template-columns: repeat(10, 60px);
+            grid-template-rows: repeat(10, 60px);
+            gap: 5px;
+            background-color: rgba(0, 0, 0, 0.2);
+            padding: 10px;
+            border-radius: 10px;
+        }
+
+        .col-labels {
+            display: grid;
+            grid-template-columns: repeat(10, 60px);
+            gap: 5px;
+            margin-left: 50px;
+            margin-bottom: 10px;
+        }
+
+        .col-label {
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: white;
+        }
+
+        .cell {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(145deg, #ff8c00, #ff6600);
+            border: none;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .cell:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
+            background: linear-gradient(145deg, #ff9c20, #ff7620);
+        }
+
+        .cell.opened {
+            background: linear-gradient(145deg, #ff4500, #cc3700);
+            cursor: default;
+        }
+
+        .cell.opened:hover {
+            transform: none;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .controls {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            background-color: rgba(255, 255, 255, 0.2);
+            padding: 20px;
+            border-radius: 15px;
+            width: 100%;
+            max-width: 600px;
+        }
+
+        .current-player {
+            font-size: 1.5rem;
+            color: white;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        .input-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+        }
+
+        .coordinate-input {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            width: 100%;
+            justify-content: center;
+        }
+
+        select, input, button {
+            padding: 12px 15px;
+            font-size: 1.1rem;
+            border: none;
+            border-radius: 8px;
+        }
+
+        select, input {
+            background-color: white;
+            width: 120px;
+            text-align: center;
+        }
+
+        button {
+            background: linear-gradient(145deg, #ff8a00, #e52e71);
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+            width: 150px;
+        }
+
+        button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .message {
+            font-size: 1.2rem;
+            color: white;
+            text-align: center;
+            min-height: 25px;
+        }
+
+        .game-info {
+            display: flex;
+            justify-content: space-around;
+            width: 100%;
+            max-width: 600px;
+            margin-top: 20px;
+        }
+
+        .player-info {
+            background-color: rgba(255, 255, 255, 0.2);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            min-width: 200px;
+        }
+
+        .player-name {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: white;
+            margin-bottom: 5px;
+        }
+
+        .player-score {
+            font-size: 1.5rem;
+            color: #ffd700;
+            font-weight: bold;
+        }
+        
+        .question-display {
+            background: linear-gradient(145deg, #11cb6a, #25fcd5);
+            color: white;
+            padding: 20px;
+            border-radius: 15px;
+            margin-top: 20px;
+            width: 100%;
+            max-width: 600px;
+            text-align: center;
+            font-size: 1.3rem;
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2rem;
+            }
+            
+            h2 {
+                font-size: 1.3rem;
+            }
+            
+            .cell {
+                width: 45px;
+                height: 45px;
+                font-size: 1.2rem;
+            }
+            
+            .board {
+                grid-template-columns: repeat(10, 45px);
+                grid-template-rows: repeat(10, 45px);
+            }
+            
+            .col-label {
+                width: 45px;
+                font-size: 1rem;
+            }
+            
+            .row-label {
+                height: 45px;
+                width: 35px;
+                font-size: 1rem;
+            }
+            
+            .row-labels {
+                gap: 3px;
+            }
+            
+            .coordinate-input {
+                flex-direction: column;
+                gap: 10px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            h1 {
+                font-size: 1.5rem;
+            }
+            
+            h2 {
+                font-size: 1rem;
+            }
+            
+            .cell {
+                width: 35px;
+                height: 35px;
+                font-size: 1rem;
+            }
+            
+            .board {
+                grid-template-columns: repeat(10, 35px);
+                grid-template-rows: repeat(10, 35px);
+            }
+            
+            .col-label {
+                width: 35px;
+                font-size: 0.9rem;
+            }
+            
+            .row-label {
+                height: 35px;
+                width: 30px;
+                font-size: 0.9rem;
+            }
+            
+            select, input {
+                width: 100px;
+                font-size: 1rem;
+            }
+            
+            button {
+                width: 120px;
+                font-size: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>ЛА-ЛА-ГЕЙМ</h1>
+        <h2>Викторина с элементами караоке</h2>
+    </div>
+
+    <div class="game-container">
+        <div class="col-labels" id="colLabels">
+            <!-- Column labels will be generated by JavaScript -->
+        </div>
+        
+        <div class="game-board">
+            <div class="row-labels" id="rowLabels">
+                <!-- Row labels will be generated by JavaScript -->
+            </div>
+            <div class="board" id="gameBoard">
+                <!-- Game cells will be generated by JavaScript -->
+            </div>
+        </div>
+
+        <div class="controls">
+            <div class="current-player" id="currentPlayer">
+                Игрок 1, ваш ход
+            </div>
+            
+            <div class="input-section">
+                <div class="coordinate-input">
+                    <select id="colSelect">
+                        <option value="">Выберите столбец</option>
+                    </select>
+                    <input type="number" id="rowInput" placeholder="Строка (1-10)" min="1" max="10">
+                    <button id="openCellBtn">Открыть ячейку</button>
+                </div>
+                <div class="message" id="message"></div>
+            </div>
+        </div>
+
+        <div class="question-display" id="questionDisplay">
+            <!-- Question will be displayed here -->
+        </div>
+
+        <div class="game-info">
+            <div class="player-info">
+                <div class="player-name">Игрок 1</div>
+                <div class="player-score" id="player1Score">0</div>
+            </div>
+            <div class="player-info">
+                <div class="player-name">Игрок 2</div>
+                <div class="player-score" id="player2Score">0</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Game constants
+            const ROWS = 10;
+            const COLS = 10;
+            const TOTAL_CELLS = ROWS * COLS; // 100 cells
+            const NUM_QUESTIONS = 90; // Numbers representing questions
+            const NUM_SYMBOLS = 10; // Special symbols
+            
+            // Game state
+            let board = [];
+            let players = [0, 0]; // Scores for player 1 and player 2
+            let currentPlayer = 0; // 0 for player 1, 1 for player 2
+            let gameBoard = document.getElementById('gameBoard');
+            let colLabels = document.getElementById('colLabels');
+            let rowLabels = document.getElementById('rowLabels');
+            let colSelect = document.getElementById('colSelect');
+            let rowInput = document.getElementById('rowInput');
+            let openCellBtn = document.getElementById('openCellBtn');
+            let currentPlayerDisplay = document.getElementById('currentPlayer');
+            let messageDisplay = document.getElementById('message');
+            let player1Score = document.getElementById('player1Score');
+            let player2Score = document.getElementById('player2Score');
+            let questionDisplay = document.getElementById('questionDisplay');
+            
+            // Initialize the game
+            function initGame() {
+                // Create column labels (A-J)
+                for (let j = 0; j < COLS; j++) {
+                    const letter = String.fromCharCode(65 + j); // A=65, B=66, ..., J=74
+                    const label = document.createElement('div');
+                    label.className = 'col-label';
+                    label.textContent = letter;
+                    colLabels.appendChild(label);
+                    
+                    // Add option to column select
+                    const option = document.createElement('option');
+                    option.value = letter;
+                    option.textContent = letter;
+                    colSelect.appendChild(option);
+                }
+                
+                // Create row labels (1-10)
+                for (let i = 0; i < ROWS; i++) {
+                    const label = document.createElement('div');
+                    label.className = 'row-label';
+                    label.textContent = i + 1;
+                    rowLabels.appendChild(label);
+                }
+                
+                // Create cells and fill board
+                createBoard();
+            }
+            
+            function createBoard() {
+                // Create array of values for the board
+                let values = [];
+                
+                // Add numbers (questions) 1-90
+                for (let i = 1; i <= NUM_QUESTIONS; i++) {
+                    values.push(i.toString());
+                }
+                
+                // Add special symbols
+                const symbols = ['★', '♥', '♦', '♣', '♠', '♪', '♫', '☀', '☁', '☂'];
+                for (let i = 0; i < NUM_SYMBOLS; i++) {
+                    values.push(symbols[i]);
+                }
+                
+                // Shuffle the values array
+                shuffleArray(values);
+                
+                // Fill the board
+                for (let i = 0; i < ROWS; i++) {
+                    board[i] = [];
+                    for (let j = 0; j < COLS; j++) {
+                        const cellValue = values.pop();
+                        board[i][j] = {
+                            value: cellValue,
+                            isOpened: false
+                        };
+                        
+                        const cell = document.createElement('div');
+                        cell.className = 'cell';
+                        cell.dataset.row = i;
+                        cell.dataset.col = j;
+                        cell.textContent = '?';
+                        
+                        cell.addEventListener('click', () => {
+                            handleCellClick(i, j);
+                        });
+                        
+                        gameBoard.appendChild(cell);
+                    }
+                }
+            }
+            
+            // Fisher-Yates shuffle algorithm
+            function shuffleArray(array) {
+                for (let i = array.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [array[i], array[j]] = [array[j], array[i]];
+                }
+            }
+            
+            // Handle cell click
+            function handleCellClick(row, col) {
+                if (board[row][col].isOpened) return; // Already opened
+                
+                openCell(row, col);
+            }
+            
+            // Open a specific cell
+            function openCell(row, col) {
+                const cellElement = document.querySelector(`.cell[data-row="${row}"][data-col="${col}"]`);
+                const cellData = board[row][col];
+                
+                cellElement.textContent = cellData.value;
+                cellElement.classList.add('opened');
+                
+                cellData.isOpened = true;
+                
+                // Check if it's a number (question) or symbol
+                const isNumber = !isNaN(cellData.value);
+                
+                if (isNumber) {
+                    messageDisplay.textContent = `Открыт вопрос #${cellData.value}! Игрок ${currentPlayer + 1} получает очко.`;
+                    players[currentPlayer]++;
+                    updateScores();
+                } else {
+                    messageDisplay.textContent = `Открыт символ: ${cellData.value}. Ход переходит к следующему игроку.`;
+                }
+                
+                // Switch player if it was a symbol
+                if (!isNumber) {
+                    currentPlayer = (currentPlayer + 1) % 2;
+                    updateCurrentPlayerDisplay();
+                }
+                
+                // Check if game is finished
+                checkGameEnd();
+            }
+            
+            // Handle button click
+            openCellBtn.addEventListener('click', () => {
+                const colLetter = colSelect.value;
+                const rowStr = rowInput.value;
+                
+                if (!colLetter || !rowStr) {
+                    messageDisplay.textContent = 'Пожалуйста, выберите столбец и введите строку';
+                    return;
+                }
+                
+                const row = parseInt(rowStr) - 1;
+                const col = colLetter.charCodeAt(0) - 65; // A=0, B=1, ..., J=9
+                
+                if (row < 0 || row >= ROWS || col < 0 || col >= COLS) {
+                    messageDisplay.textContent = 'Неверные координаты';
+                    return;
+                }
+                
+                handleCellClick(row, col);
+                
+                // Reset input fields
+                colSelect.value = '';
+                rowInput.value = '';
+            });
+            
+            // Update scores display
+            function updateScores() {
+                player1Score.textContent = players[0];
+                player2Score.textContent = players[1];
+            }
+            
+            // Update current player display
+            function updateCurrentPlayerDisplay() {
+                currentPlayerDisplay.textContent = `Игрок ${currentPlayer + 1}, ваш ход`;
+            }
+            
+            // Check if game is finished
+            function checkGameEnd() {
+                let openedCount = 0;
+                for (let i = 0; i < ROWS; i++) {
+                    for (let j = 0; j < COLS; j++) {
+                        if (board[i][j].isOpened) {
+                            openedCount++;
+                        }
+                    }
+                }
+                
+                if (openedCount === TOTAL_CELLS) {
+                    const winner = players[0] > players[1] ? 'Игрок 1' : players[1] > players[0] ? 'Игрок 2' : 'Ничья';
+                    messageDisplay.textContent = `Игра окончена! Победитель: ${winner}`;
+                    openCellBtn.disabled = true;
+                }
+            }
+            
+            // Initialize the game
+            initGame();
+        });
+    </script>
+</body>
+</html>
