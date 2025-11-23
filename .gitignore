@@ -1,31 +1,39 @@
-# Examples 1:
-# Project with only source/config files
-# Expected output: (empty - output nothing)
+```
+# Database files
+*.db
 
-# Example 2:
-# Project with artifacts
-# Expected output:
-# # Compiled and build artifacts
-# *.pyc
-# __pycache__/
-# *.o
-# *.obj
-# dist/
-# build/
-# # Dependencies
-# .venv/
-# venv/
-# node_modules/
-# # Logs and temp files
-# *.log
-# *.tmp
-# *.swp
-# # Environment
-# .env
-# .env.local
-# .env.*
-# # Editors
-# .vscode/
-# .idea/
-# # Original rules preserved
-# *.log
+# Logs and temp files
+*.log
+*.tmp
+*.swp
+
+# Environment
+.env
+.env.local
+*.env.*
+
+# Editors
+.vscode/
+.idea/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Dependencies
+node_modules/
+venv/
+.venv/
+pip-log.txt
+pipenv.lock
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+.coverage
+htmlcov/
+.coverage.*
+```
