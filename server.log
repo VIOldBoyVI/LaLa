@@ -1,13 +1,7 @@
-ЛА-ЛА-ГЕЙМ - Викторина с элементами караоке
-Инициализация базы данных...
-База данных инициализирована.
-Запуск веб-сервера...
-Откройте в браузере: http://localhost:5555
- * Serving Flask app 'src.app'
+ * Serving Flask app 'app'
  * Debug mode: off
 WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
  * Running on all addresses (0.0.0.0)
  * Running on http://127.0.0.1:5555
- * Running on http://21.0.6.197:5555
+ * Running on http://21.0.12.56:5555
 Press CTRL+C to quit
-127.0.0.1 - - [23/Nov/2025 20:38:44] "GET /quiz HTTP/1.1" 200 -
