@@ -3,125 +3,130 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ЛА-ЛА-ГЕЙМ</title>
+    <title>ЛА-ЛА-ГЕЙМ - Викторина с элементами караоке</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
+        * {
             margin: 0;
-            padding: 20px;
-            background-color: #f0f0f0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Arial', sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #ff8c00, #ff6600, #ff4500);
+            min-height: 100vh;
             display: flex;
             flex-direction: column;
             align-items: center;
-            min-height: 100vh;
+            padding: 20px;
         }
 
         .header {
-            width: 100%;
             text-align: center;
-            margin-bottom: 20px;
+            margin-bottom: 30px;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
         }
 
         h1 {
-            color: #333;
+            font-size: 3rem;
             margin-bottom: 10px;
         }
 
         h2 {
-            color: #666;
-            margin-top: 0;
+            font-size: 1.8rem;
         }
 
         .round-info {
             position: absolute;
             top: 20px;
             right: 20px;
-            background-color: #fff;
+            background-color: rgba(0, 0, 0, 0.3);
             padding: 10px 20px;
             border-radius: 5px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
             font-weight: bold;
+            color: white;
         }
 
         .game-container {
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 20px;
+            gap: 30px;
+            max-width: 1000px;
+            width: 100%;
         }
 
         .grid-container {
             display: grid;
-            grid-template-columns: repeat(11, 40px);
-            grid-template-rows: repeat(11, 40px);
+            grid-template-columns: 40px repeat(10, 40px);
+            grid-template-rows: 40px repeat(10, 40px);
             gap: 2px;
-            background-color: #333;
+            background-color: rgba(0, 0, 0, 0.2);
             padding: 10px;
-            border-radius: 5px;
+            border-radius: 10px;
         }
 
         .cell {
             width: 40px;
             height: 40px;
-            background-color: #666;
+            background: linear-gradient(145deg, #ff8c00, #ff6600);
+            border: none;
+            border-radius: 8px;
             display: flex;
             align-items: center;
             justify-content: center;
-            cursor: pointer;
+            font-size: 1.2rem;
             font-weight: bold;
             color: white;
-            user-select: none;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .cell:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
+            background: linear-gradient(145deg, #ff9c20, #ff7620);
         }
 
         .cell.revealed {
-            background-color: #ccc;
-            color: black;
-        }
-
-        .cell-header {
-            background-color: #999;
+            background: linear-gradient(145deg, #11cb6a, #25fcd5);
             cursor: default;
         }
 
-        .question-modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0,0,0,0.7);
-            z-index: 1000;
-            align-items: center;
-            justify-content: center;
+        .cell.revealed:hover {
+            transform: none;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
         }
 
-        .modal-content {
-            background-color: white;
-            padding: 30px;
-            border-radius: 10px;
-            width: 80%;
-            max-width: 500px;
+        .cell-header {
+            background-color: rgba(0, 0, 0, 0.3);
+            cursor: default;
+            font-weight: bold;
+            color: white;
+        }
+
+        .question-display {
+            background: linear-gradient(145deg, #11cb6a, #25fcd5);
+            color: white;
+            padding: 20px;
+            border-radius: 15px;
+            margin-top: 20px;
+            width: 100%;
+            max-width: 600px;
             text-align: center;
-        }
-
-        .modal-content input {
-            width: 100%;
-            padding: 10px;
-            margin: 10px 0;
-            font-size: 16px;
-        }
-
-        .modal-content button {
-            padding: 10px 20px;
-            font-size: 16px;
-            margin: 5px;
+            font-size: 1.3rem;
+            display: none;
         }
 
         .score-display {
             font-size: 18px;
             font-weight: bold;
-            margin-top: 10px;
+            color: white;
+            background-color: rgba(0, 0, 0, 0.3);
+            padding: 10px 20px;
+            border-radius: 10px;
         }
 
         .break-screen {
@@ -156,17 +161,10 @@
 
     <div class="game-container">
         <div class="grid-container" id="grid"></div>
-        <div class="score-display" id="scoreDisplay">Счёт: 0</div>
-    </div>
-
-    <div class="question-modal" id="questionModal">
-        <div class="modal-content">
-            <h3 id="questionText">Вопрос будет здесь</h3>
-            <input type="text" id="answerInput" placeholder="Введите ваш ответ">
-            <br>
-            <button onclick="submitAnswer()">Ответить</button>
-            <button onclick="closeModal()">Закрыть</button>
+        <div class="question-display" id="questionDisplay">
+            <!-- Question will be displayed here -->
         </div>
+        <div class="score-display" id="scoreDisplay">Счёт: 0</div>
     </div>
 
     <div class="break-screen" id="breakScreen">
@@ -348,8 +346,8 @@
 
                 if (data.question_id) {
                     currentQuestionId = data.question_id;
-                    document.getElementById('questionText').textContent = data.question_text;
-                    openModal();
+                    document.getElementById('questionDisplay').textContent = data.question_text;
+                    document.getElementById('questionDisplay').style.display = 'block';
                 }
             } catch (error) {
                 console.error('Error getting question:', error);
@@ -357,41 +355,23 @@
         }
 
         async function submitAnswer() {
-            const answer = document.getElementById('answerInput').value.trim();
-            if (!answer || !currentQuestionId) return;
-
-            try {
-                const response = await fetch('/api/check_answer', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        question_id: currentQuestionId,
-                        answer: answer
-                    })
-                });
-
-                const data = await response.json();
-
-                if (data.correct) {
-                    score += 10;
-                    document.getElementById('scoreDisplay').textContent = `Счёт: ${score}`;
-                }
-
-                closeModal();
-            } catch (error) {
-                console.error('Error checking answer:', error);
-            }
+            // For now, we're just showing the question without input
+            // In a real implementation, you might want to add an input field
+            document.getElementById('questionDisplay').style.display = 'none';
+            currentQuestionId = null;
+            
+            // Automatically add points for answering correctly
+            score += 10;
+            document.getElementById('scoreDisplay').textContent = `Счёт: ${score}`;
+            saveGameState();
         }
 
         function openModal() {
-            document.getElementById('questionModal').style.display = 'flex';
+            document.getElementById('questionDisplay').style.display = 'block';
         }
 
         function closeModal() {
-            document.getElementById('questionModal').style.display = 'none';
-            document.getElementById('answerInput').value = '';
+            document.getElementById('questionDisplay').style.display = 'none';
             currentQuestionId = null;
         }
 

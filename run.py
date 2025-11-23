@@ -19,12 +19,12 @@ def main():
     
     print("База данных инициализирована.")
     print("Запуск веб-сервера...")
-    print("Откройте в браузере: http://localhost:5000")
+    print("Откройте в браузере: http://localhost:5555")
     
     # Запуск Flask-приложения
     app.run(
         host='0.0.0.0',
-        port=5000,
+        port=5555,
         debug=False  # В продакшене debug=False более безопасен
     )
 
