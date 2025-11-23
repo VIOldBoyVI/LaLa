@@ -10,5 +10,4 @@ WARNING: This is a development server. Do not use it in a production deployment.
  * Running on http://127.0.0.1:5555
  * Running on http://21.0.6.197:5555
 Press CTRL+C to quit
-127.0.0.1 - - [23/Nov/2025 20:18:31] "GET /quiz-game HTTP/1.1" 200 -
-127.0.0.1 - - [23/Nov/2025 20:19:18] "GET /quiz-game HTTP/1.1" 200 -
+127.0.0.1 - - [23/Nov/2025 20:38:44] "GET /quiz HTTP/1.1" 200 -

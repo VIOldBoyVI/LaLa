@@ -1,5 +1,11 @@
 ```
+# Logs and temp files
+*.log
+server.log
+
 # Database files
-*.db
 database.db
+
+# Templates directory
+templates/
 ```
