@@ -175,25 +175,38 @@
     </div>
 
     <script>
-        // Генерация содержимого сетки
-        const grid = document.getElementById('grid');
-        const cells = [];
+        // Game constants
+        const ROWS = 10;
+        const COLS = 10;
+        const TOTAL_CELLS = ROWS * COLS; // 100 cells
+        const NUM_QUESTIONS = 90; // Numbers representing questions
+        const NUM_SYMBOLS = 10; // Special symbols
+        
+        // Game state
+        let board = [];
         let sessionId = localStorage.getItem('sessionId') || generateSessionId();
         let currentRound = 1;
         let score = 0;
-        let gameBoard = [];
-        let revealedCells = new Set();
+        let gameBoard = document.getElementById('gameBoard');
+        let colLabels = document.getElementById('colLabels');
+        let rowLabels = document.getElementById('rowLabels');
+        let currentPlayerDisplay = document.getElementById('currentPlayer');
+        let messageDisplay = document.getElementById('message');
+        let scoreDisplay = document.getElementById('scoreDisplay');
+        let openedQuestionsDisplay = document.getElementById('openedQuestions');
+        let totalQuestionsDisplay = document.getElementById('totalQuestions');
+        let questionDisplay = document.getElementById('questionDisplay');
+        let roundInfo = document.getElementById('roundInfo');
         let currentQuestionId = null;
-        let roundQuestions = [];
+        let revealedCells = 0;
         let roundCounters = [0, 20, 20, 20, 20, 10]; // Количество вопросов в каждом раунде
-        let totalRevealedInRound = 0;
         let isBreakActive = false;
         let breakInterval = null;
 
         // Сохраняем session ID в localStorage
         localStorage.setItem('sessionId', sessionId);
 
-        // Инициализация игры
+        // Initialize the game
         initGame();
 
         function generateSessionId() {
@@ -214,119 +227,136 @@
 
                 currentRound = data.current_round || 1;
                 score = data.score || 0;
-                document.getElementById('scoreDisplay').textContent = `Счёт: ${score}`;
+                scoreDisplay.textContent = `Счёт: ${score}`;
                 updateRoundInfo();
+                updateTotalQuestions();
 
-                // Загружаем состояние игры
-                await loadGameState();
-
+                // Create the game board
                 createBoard();
             } catch (error) {
                 console.error('Error initializing game:', error);
             }
         }
 
-        async function loadGameState() {
-            try {
-                const response = await fetch(`/api/load_state?session_id=${sessionId}`);
-                const data = await response.json();
-
-                if (data.current_round) {
-                    currentRound = data.current_round;
-                    score = data.score || 0;
-                    document.getElementById('scoreDisplay').textContent = `Счёт: ${score}`;
-                    updateRoundInfo();
-                }
-            } catch (error) {
-                console.error('Error loading game state:', error);
-            }
-        }
-
         function createBoard() {
-            grid.innerHTML = '';
-            gameBoard = [];
-            revealedCells.clear();
+            // Clear existing elements
+            gameBoard.innerHTML = '';
+            colLabels.innerHTML = '';
+            rowLabels.innerHTML = '';
+            board = [];
 
-            // Очистка сетки
-            for (let i = 0; i < 11; i++) {
-                for (let j = 0; j < 11; j++) {
+            // Create column labels (A-J)
+            for (let j = 0; j < COLS; j++) {
+                const letter = String.fromCharCode(65 + j); // A=65, B=66, ..., J=74
+                const label = document.createElement('div');
+                label.className = 'col-label';
+                label.textContent = letter;
+                colLabels.appendChild(label);
+            }
+
+            // Create row labels (1-10)
+            for (let i = 0; i < ROWS; i++) {
+                const label = document.createElement('div');
+                label.className = 'row-label';
+                label.textContent = i + 1;
+                rowLabels.appendChild(label);
+            }
+
+            // Create array of values for the board
+            let values = [];
+
+            // Add numbers (questions) 1-90
+            for (let i = 1; i <= NUM_QUESTIONS; i++) {
+                values.push(i.toString());
+            }
+
+            // Add special symbols
+            const symbols = ['★', '♥', '♦', '♣', '♠', '♪', '♫', '☀', '☁', '☂'];
+            for (let i = 0; i < NUM_SYMBOLS; i++) {
+                values.push(symbols[i]);
+            }
+
+            // Shuffle the values array
+            shuffleArray(values);
+
+            // Fill the board
+            for (let i = 0; i < ROWS; i++) {
+                board[i] = [];
+                for (let j = 0; j < COLS; j++) {
+                    const cellValue = values.pop();
+                    board[i][j] = {
+                        value: cellValue,
+                        isRevealed: false
+                    };
+
                     const cell = document.createElement('div');
                     cell.className = 'cell';
+                    cell.dataset.row = i;
+                    cell.dataset.col = j;
+                    cell.textContent = '?';
 
-                    if (i === 0 && j === 0) {
-                        // Пустая ячейка в углу
-                        cell.classList.add('cell-header');
-                        cell.textContent = '';
-                    } else if (i === 0) {
-                        // Заголовки столбцов (A-J)
-                        cell.classList.add('cell-header');
-                        cell.textContent = String.fromCharCode(64 + j);
-                    } else if (j === 0) {
-                        // Заголовки строк (1-10)
-                        cell.classList.add('cell-header');
-                        cell.textContent = i;
-                    } else {
-                        // Игровые ячейки
-                        const cellId = `${String.fromCharCode(64 + j)}-${i}`;
-                        cell.dataset.id = cellId;
-                        cell.addEventListener('click', () => handleCellClick(cellId, i, j));
+                    cell.addEventListener('click', () => {
+                        handleCellClick(i, j);
+                    });
 
-                        // Генерация содержимого ячейки
-                        let cellContent;
-                        if (Math.random() < 0.9) {
-                            // 90% шанс на номер вопроса
-                            cellContent = Math.floor(Math.random() * 50) + 1;
-                        } else {
-                            // 10% шанс на символ
-                            const symbols = ['★', '♪', '♫', '♬', '♭', '♮', '♯', '✓', '✗'];
-                            cellContent = symbols[Math.floor(Math.random() * symbols.length)];
-                        }
-
-                        gameBoard.push({
-                            id: cellId,
-                            row: i,
-                            col: j,
-                            content: cellContent,
-                            element: cell
-                        });
-                    }
-
-                    grid.appendChild(cell);
+                    gameBoard.appendChild(cell);
                 }
             }
         }
 
-        function handleCellClick(cellId, row, col) {
-            if (isBreakActive || revealedCells.has(cellId)) return;
+        // Fisher-Yates shuffle algorithm
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
 
-            const cell = gameBoard.find(c => c.id === cellId);
-            if (!cell) return;
+        // Handle cell click
+        function handleCellClick(row, col) {
+            if (isBreakActive || board[row][col].isRevealed) return;
 
-            // Проверяем, не является ли это перерывом
-            if ((currentRound === 2 && totalRevealedInRound >= 20) ||
-                (currentRound === 4 && totalRevealedInRound >= 20)) {
+            // Check if it's time for a break
+            if ((currentRound === 2 && revealedCells >= 20) ||
+                (currentRound === 4 && revealedCells >= 20)) {
                 startBreak();
                 return;
             }
 
-            // Открываем ячейку
-            cell.element.textContent = cell.content;
-            cell.element.classList.add('revealed');
-            revealedCells.add(cellId);
-            totalRevealedInRound++;
+            openCell(row, col);
+        }
 
-            // Проверяем, является ли содержимое вопросом
-            if (typeof cell.content === 'number') {
-                askQuestion(cell.content);
+        // Open a specific cell
+        async function openCell(row, col) {
+            const cellElement = document.querySelector(`.cell[data-row="${row}"][data-col="${col}"]`);
+            const cellData = board[row][col];
+
+            cellElement.textContent = cellData.value;
+            cellElement.classList.add('opened');
+
+            cellData.isRevealed = true;
+            revealedCells++;
+
+            // Check if it's a number (question) or symbol
+            const isNumber = !isNaN(cellData.value);
+
+            if (isNumber) {
+                messageDisplay.textContent = `Открыт вопрос #${cellData.value}!`;
+                await askQuestion(cellData.value);
+            } else {
+                messageDisplay.textContent = `Открыт символ: ${cellData.value}`;
             }
 
-            // Проверяем, завершён ли раунд
-            if (totalRevealedInRound >= roundCounters[currentRound]) {
+            // Update opened questions counter
+            openedQuestionsDisplay.textContent = revealedCells;
+
+            // Check if round is finished
+            if (revealedCells >= roundCounters[currentRound]) {
                 nextRound();
             }
 
-            // Сохраняем состояние игры
-            saveGameState();
+            // Save game state
+            await saveGameState();
         }
 
         async function askQuestion(questionNumber) {
@@ -346,58 +376,53 @@
 
                 if (data.question_id) {
                     currentQuestionId = data.question_id;
-                    document.getElementById('questionDisplay').textContent = data.question_text;
-                    document.getElementById('questionDisplay').style.display = 'block';
+                    questionDisplay.textContent = data.question_text;
+                    questionDisplay.style.display = 'block';
+                    
+                    // Automatically add points after showing the question
+                    setTimeout(async () => {
+                        score += 10;
+                        scoreDisplay.textContent = `Счёт: ${score}`;
+                        await saveGameState();
+                        // Hide the question after a few seconds
+                        setTimeout(() => {
+                            questionDisplay.style.display = 'none';
+                        }, 3000);
+                    }, 3000); // Show question for 3 seconds before adding points
                 }
             } catch (error) {
                 console.error('Error getting question:', error);
             }
         }
 
-        async function submitAnswer() {
-            // For now, we're just showing the question without input
-            // In a real implementation, you might want to add an input field
-            document.getElementById('questionDisplay').style.display = 'none';
-            currentQuestionId = null;
-            
-            // Automatically add points for answering correctly
-            score += 10;
-            document.getElementById('scoreDisplay').textContent = `Счёт: ${score}`;
-            saveGameState();
-        }
-
-        function openModal() {
-            document.getElementById('questionDisplay').style.display = 'block';
-        }
-
-        function closeModal() {
-            document.getElementById('questionDisplay').style.display = 'none';
-            currentQuestionId = null;
-        }
-
         function updateRoundInfo() {
-            const roundInfo = document.getElementById('roundInfo');
             if (isBreakActive) {
                 roundInfo.textContent = 'Перерыв';
             } else {
                 roundInfo.textContent = `Раунд ${currentRound}`;
+                currentPlayerDisplay.textContent = `Раунд ${currentRound}`;
             }
+        }
+
+        function updateTotalQuestions() {
+            totalQuestionsDisplay.textContent = roundCounters[currentRound];
         }
 
         function nextRound() {
             currentRound++;
-            totalRevealedInRound = 0;
+            revealedCells = 0;
 
             if (currentRound > 5) {
-                // Игра завершена
+                // Game finished
                 alert(`Игра окончена! Ваш финальный счёт: ${score}`);
                 return;
             }
 
             updateRoundInfo();
+            updateTotalQuestions();
             createBoard();
 
-            // Проверяем, нужно ли делать перерыв
+            // Check if we need to take a break after this round
             if (currentRound === 3 || currentRound === 5) {
                 startBreak();
             }
@@ -410,7 +435,7 @@
             updateRoundInfo();
             document.getElementById('breakScreen').style.display = 'flex';
 
-            let timeLeft = 600; // 10 минут в секундах
+            let timeLeft = 600; // 10 minutes in seconds
 
             breakInterval = setInterval(() => {
                 const minutes = Math.floor(timeLeft / 60);
