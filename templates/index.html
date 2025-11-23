@@ -455,12 +455,12 @@
                         <td>
                             <div class="score-controls">
                                 <button class="score-btn minus-btn" type="button">-</button>
-                                <span class="player-score" id="player1Score">0</span>
+                                <span class="player-score">0</span>
                                 <button class="score-btn plus-btn" type="button">+</button>
                             </div>
                         </td>
                         <td>
-                            <button class="remove-player-btn" type="button" disabled>-</button>
+                            <button class="remove-player-btn" type="button">-</button>
                         </td>
                     </tr>
                     <tr>
@@ -468,12 +468,12 @@
                         <td>
                             <div class="score-controls">
                                 <button class="score-btn minus-btn" type="button">-</button>
-                                <span class="player-score" id="player2Score">0</span>
+                                <span class="player-score">0</span>
                                 <button class="score-btn plus-btn" type="button">+</button>
                             </div>
                         </td>
                         <td>
-                            <button class="remove-player-btn" type="button" disabled>-</button>
+                            <button class="remove-player-btn" type="button">-</button>
                         </td>
                     </tr>
                 </tbody>
@@ -482,12 +482,6 @@
         </div>
 
         <div class="controls">
-            <div class="current-player">
-                <label for="currentPlayerSelect">Текущий игрок:</label>
-                <select id="currentPlayerSelect">
-                    <!-- Options will be populated by JavaScript -->
-                </select>
-            </div>
 
             <div class="input-section">
                 <div class="coordinate-input">
@@ -517,7 +511,6 @@
 
             // Game state
             let board = [];
-            let players = [0, 0]; // Scores for player 1 and player 2 (will be updated to work with table)
             let currentPlayer = 0; // Index of current player (now managed by dropdown)
             let gameBoard = document.getElementById('gameBoard');
             let colLabels = document.getElementById('colLabels');
@@ -527,8 +520,6 @@
             let openCellBtn = document.getElementById('openCellBtn');
             let currentPlayerSelect = document.getElementById('currentPlayerSelect');
             let messageDisplay = document.getElementById('message');
-            let player1Score = document.getElementById('player1Score');
-            let player2Score = document.getElementById('player2Score');
             let questionDisplay = document.getElementById('questionDisplay');
 
             // Initialize the game
@@ -705,7 +696,29 @@
                 }
 
                 if (openedCount === TOTAL_CELLS) {
-                    const winner = players[0] > players[1] ? 'Игрок 1' : players[1] > players[0] ? 'Игрок 2' : 'Ничья';
+                    // Find the player with the highest score
+                    let maxScore = -1;
+                    let winner = 'Ничья';
+                    let winnerCount = 0;
+                    
+                    for (let i = 0; i < playersTableBody.rows.length; i++) {
+                        const row = playersTableBody.rows[i];
+                        const scoreSpan = row.querySelector('.player-score');
+                        const score = parseInt(scoreSpan.textContent) || 0;
+                        
+                        if (score > maxScore) {
+                            maxScore = score;
+                            winner = row.querySelector('.player-name-input').value || `Игрок ${i + 1}`;
+                            winnerCount = 1;
+                        } else if (score === maxScore) {
+                            winnerCount++;
+                        }
+                    }
+                    
+                    if (winnerCount > 1) {
+                        winner = 'Ничья';
+                    }
+                    
                     messageDisplay.textContent = `Игра окончена! Победитель: ${winner}`;
                     openCellBtn.disabled = true;
                 }
@@ -780,48 +793,42 @@
                 });
             }
             
-            // Add event listeners to initial buttons
-            document.querySelectorAll('.minus-btn').forEach((btn, index) => {
-                btn.addEventListener('click', () => {
-                    const scoreSpan = btn.parentElement.querySelector('.player-score');
+            // Use event delegation for all player-related buttons
+            playersTableBody.addEventListener('click', (e) => {
+                if (e.target.classList.contains('minus-btn')) {
+                    const scoreSpan = e.target.parentElement.querySelector('.player-score');
                     let currentScore = parseInt(scoreSpan.textContent);
                     if (!isNaN(currentScore)) {
                         currentScore = Math.max(0, currentScore - 1); // Prevent negative scores
                         scoreSpan.textContent = currentScore;
                     }
-                });
-            });
-            
-            document.querySelectorAll('.plus-btn').forEach((btn, index) => {
-                btn.addEventListener('click', () => {
-                    const scoreSpan = btn.parentElement.querySelector('.player-score');
+                } else if (e.target.classList.contains('plus-btn')) {
+                    const scoreSpan = e.target.parentElement.querySelector('.player-score');
                     let currentScore = parseInt(scoreSpan.textContent);
                     if (!isNaN(currentScore)) {
                         currentScore += 1;
                         scoreSpan.textContent = currentScore;
                     }
-                });
-            });
-            
-            document.querySelectorAll('.remove-player-btn').forEach((btn, index) => {
-                btn.addEventListener('click', () => {
+                } else if (e.target.classList.contains('remove-player-btn')) {
                     if (playersTableBody.rows.length > 2) { // Ensure at least 2 players remain
-                        const row = btn.closest('tr');
+                        const row = e.target.closest('tr');
                         playersTableBody.removeChild(row);
                         playerCount--;
                         updatePlayerDropdown(); // Update dropdown after removing player
                     } else {
                         messageDisplay.textContent = 'Должно быть как минимум 2 игрока';
                     }
-                });
+                }
             });
             
             // Add event listeners to player name inputs to update dropdown when names change
-            document.querySelectorAll('.player-name-input').forEach((input, index) => {
-                input.addEventListener('input', () => {
+            playersTableBody.addEventListener('input', (e) => {
+                if (e.target.classList.contains('player-name-input')) {
                     updatePlayerDropdown();
-                });
+                }
             });
+            
+            
             
             // Function to update the current player dropdown with player names
             function updatePlayerDropdown() {
