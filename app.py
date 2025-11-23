@@ -61,6 +61,17 @@ def init_db():
         )
     ''')
 
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS players (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id TEXT,
+            player_name TEXT,
+            score INTEGER DEFAULT 0,
+            position INTEGER,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
     # Добавление вопросов в базу данных
     questions = [
         (1, "Какое музыкальное направление считается предшественником рока?", "Блюз", "Музыкальные жанры"),
@@ -299,16 +310,143 @@ def load_state():
     cursor.execute('SELECT current_round, current_cell, score FROM game_states WHERE session_id = ?', (session_id,))
     game_state = cursor.fetchone()
 
+    # Get players for this session
+    cursor.execute('SELECT player_name, score FROM players WHERE session_id = ? ORDER BY position', (session_id,))
+    players = [{'player_name': row[0], 'score': row[1]} for row in cursor.fetchall()]
+
     conn.close()
 
     if game_state:
         return jsonify({
             'current_round': game_state[0],
             'current_cell': game_state[1],
-            'score': game_state[2]
+            'score': game_state[2],
+            'players': players
         })
     else:
         return jsonify({'error': 'No saved state found'}), 404
+
+
+@app.route('/api/get_players', methods=['GET'])
+def get_players():
+    session_id = request.args.get('session_id')
+    
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({'error': 'Database connection failed'}), 500
+    cursor = conn.cursor()
+
+    cursor.execute('SELECT player_name, score FROM players WHERE session_id = ? ORDER BY position', (session_id,))
+    players = [{'player_name': row[0], 'score': row[1]} for row in cursor.fetchall()]
+
+    conn.close()
+    
+    return jsonify({'players': players})
+
+
+@app.route('/api/add_player', methods=['POST'])
+def add_player():
+    data = request.json
+    session_id = data.get('session_id')
+    player_name = data.get('player_name', f'Игрок {len(data.get("players", [])) + 1}')
+    
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({'error': 'Database connection failed'}), 500
+    cursor = conn.cursor()
+
+    # Get the highest position to determine where to insert the new player
+    cursor.execute('SELECT MAX(position) FROM players WHERE session_id = ?', (session_id,))
+    max_pos = cursor.fetchone()[0]
+    new_position = 1 if max_pos is None else max_pos + 1
+
+    cursor.execute(
+        'INSERT INTO players (session_id, player_name, score, position) VALUES (?, ?, 0, ?)',
+        (session_id, player_name, new_position)
+    )
+
+    conn.commit()
+    conn.close()
+    
+    return jsonify({'status': 'success', 'player': {'player_name': player_name, 'score': 0}})
+
+
+@app.route('/api/update_player', methods=['POST'])
+def update_player():
+    data = request.json
+    session_id = data.get('session_id')
+    player_name = data.get('player_name')
+    new_score = data.get('score', 0)
+    new_player_name = data.get('new_player_name', player_name)  # If new name is provided, use it
+    
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({'error': 'Database connection failed'}), 500
+    cursor = conn.cursor()
+
+    # If player name is changing, update it
+    if new_player_name != player_name:
+        cursor.execute(
+            'UPDATE players SET score = ?, player_name = ? WHERE session_id = ? AND player_name = ?',
+            (new_score, new_player_name, session_id, player_name)
+        )
+    else:
+        cursor.execute(
+            'UPDATE players SET score = ? WHERE session_id = ? AND player_name = ?',
+            (new_score, session_id, player_name)
+        )
+
+    conn.commit()
+    conn.close()
+    
+    return jsonify({'status': 'success'})
+
+
+@app.route('/api/remove_player', methods=['POST'])
+def remove_player():
+    data = request.json
+    session_id = data.get('session_id')
+    player_name = data.get('player_name')
+    
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({'error': 'Database connection failed'}), 500
+    cursor = conn.cursor()
+
+    cursor.execute('DELETE FROM players WHERE session_id = ? AND player_name = ?', (session_id, player_name))
+
+    # Reorder positions after deletion
+    cursor.execute('SELECT id, player_name FROM players WHERE session_id = ? ORDER BY position', (session_id,))
+    remaining_players = cursor.fetchall()
+    for idx, (player_id, _) in enumerate(remaining_players, 1):
+        cursor.execute('UPDATE players SET position = ? WHERE id = ?', (idx, player_id))
+
+    conn.commit()
+    conn.close()
+    
+    return jsonify({'status': 'success'})
+
+
+@app.route('/api/reset_players', methods=['POST'])
+def reset_players():
+    data = request.json
+    session_id = data.get('session_id')
+    
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({'error': 'Database connection failed'}), 500
+    cursor = conn.cursor()
+
+    cursor.execute('DELETE FROM players WHERE session_id = ?', (session_id,))
+
+    # Add two default players
+    cursor.execute('INSERT INTO players (session_id, player_name, score, position) VALUES (?, ?, 0, 1)', (session_id, 'Игрок 1'))
+    cursor.execute('INSERT INTO players (session_id, player_name, score, position) VALUES (?, ?, 0, 2)', (session_id, 'Игрок 2'))
+
+    conn.commit()
+    conn.close()
+    
+    return jsonify({'status': 'success'})
 
 
 if __name__ == '__main__':
