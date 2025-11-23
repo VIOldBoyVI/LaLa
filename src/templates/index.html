@@ -150,7 +150,7 @@
         }
 
         .question-display {
-            background: linear-gradient(145deg, #11cb6a, #25fcd5);
+            background: linear-gradient(145deg, #1e90ff, #00bfff);
             color: white;
             padding: 20px;
             border-radius: 15px;
@@ -159,7 +159,7 @@
             max-width: 600px;
             text-align: center;
             font-size: 1.3rem;
-            display: none;
+            display: block; /* Always show, just update content */
         }
 
         .score-display {
@@ -253,12 +253,9 @@
         let roundCounters = [0, 20, 20, 20, 20, 10]; // Количество вопросов в каждом раунде
         let isBreakActive = false;
         let breakInterval = null;
-
-        // Локальные переменные вместо элементов DOM
-        let messageDisplay = { textContent: '' };
-        let currentPlayerDisplay = { textContent: '' };
-        let openedQuestionsDisplay = { textContent: '' };
-        let totalQuestionsDisplay = { textContent: '' };
+        
+        // Get the message element
+        let messageDisplay = document.getElementById('message');
 
         // Сохраняем session ID в localStorage
         localStorage.setItem('sessionId', sessionId);
@@ -286,7 +283,7 @@
                 score = data.score || 0;
                 scoreDisplay.textContent = `Счёт: ${score}`;
                 updateRoundInfo();
-                updateTotalQuestions();
+                // updateTotalQuestions(); // This function updates an element that doesn't exist
 
                 // Create the game board
                 createBoard();
@@ -402,10 +399,13 @@
                 await askQuestion(cellData.value);
             } else {
                 messageDisplay.textContent = `Открыт символ: ${cellData.value}`;
+                // Update question display to show "Ла-Ла-Раунд!" with the current background color
+                questionDisplay.textContent = 'Ла-Ла-Раунд!';
+                questionDisplay.style.display = 'block';
             }
 
             // Update opened questions counter
-            openedQuestionsDisplay.textContent = revealedCells;
+            // openedQuestionsDisplay.textContent = revealedCells; // This element doesn't exist
 
             // Check if round is finished
             if (revealedCells >= roundCounters[currentRound]) {
@@ -441,10 +441,6 @@
                         score += 10;
                         scoreDisplay.textContent = `Счёт: ${score}`;
                         await saveGameState();
-                        // Hide the question after a few seconds
-                        setTimeout(() => {
-                            questionDisplay.style.display = 'none';
-                        }, 3000);
                     }, 3000); // Show question for 3 seconds before adding points
                 }
             } catch (error) {
@@ -457,12 +453,12 @@
                 roundInfo.textContent = 'Перерыв';
             } else {
                 roundInfo.textContent = `Раунд ${currentRound}`;
-                currentPlayerDisplay.textContent = `Раунд ${currentRound}`;
+                // currentPlayerDisplay.textContent = `Раунд ${currentRound}`; // This element doesn't exist
             }
         }
 
         function updateTotalQuestions() {
-            totalQuestionsDisplay.textContent = roundCounters[currentRound];
+            // totalQuestionsDisplay.textContent = roundCounters[currentRound]; // This element doesn't exist
         }
 
         function nextRound() {
@@ -476,7 +472,7 @@
             }
 
             updateRoundInfo();
-            updateTotalQuestions();
+            // updateTotalQuestions(); // This function updates an element that doesn't exist
             createBoard();
 
             // Check if we need to take a break after this round
