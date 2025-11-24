@@ -332,6 +332,134 @@ class QuizGameApp:
             else:
                 return jsonify({'error': 'No saved state found'}), 404
 
+        @self.app.route('/api/get_players', methods=['GET'])
+        def get_players():
+            session_id = request.args.get('session_id')
+            
+            conn = self.get_db_connection()
+            if conn is None:
+                return jsonify({'error': 'Database connection failed'}), 500
+            cursor = conn.cursor()
+
+            cursor.execute('SELECT player_name, score FROM scores WHERE session_id = ?', (session_id,))
+            players = cursor.fetchall()
+
+            conn.close()
+
+            player_list = []
+            for player in players:
+                player_list.append({
+                    'player_name': player[0],
+                    'score': player[1]
+                })
+
+            return jsonify({'players': player_list})
+
+        @self.app.route('/api/add_player', methods=['POST'])
+        def add_player():
+            data = request.json
+            session_id = data.get('session_id')
+            player_name = data.get('player_name', f'Игрок {int(data.get("score", 0)) + 1}')
+            score = data.get('score', 0)
+            
+            conn = self.get_db_connection()
+            if conn is None:
+                return jsonify({'error': 'Database connection failed'}), 500
+            cursor = conn.cursor()
+
+            try:
+                cursor.execute(
+                    'INSERT INTO scores (session_id, player_name, score) VALUES (?, ?, ?)',
+                    (session_id, player_name, score)
+                )
+                conn.commit()
+                conn.close()
+                return jsonify({'status': 'success'})
+            except sqlite3.Error as e:
+                conn.close()
+                return jsonify({'error': str(e)}), 500
+
+        @self.app.route('/api/remove_player', methods=['POST'])
+        def remove_player():
+            data = request.json
+            session_id = data.get('session_id')
+            player_name = data.get('player_name')
+            
+            conn = self.get_db_connection()
+            if conn is None:
+                return jsonify({'error': 'Database connection failed'}), 500
+            cursor = conn.cursor()
+
+            try:
+                cursor.execute(
+                    'DELETE FROM scores WHERE session_id = ? AND player_name = ?',
+                    (session_id, player_name)
+                )
+                conn.commit()
+                conn.close()
+                return jsonify({'status': 'success'})
+            except sqlite3.Error as e:
+                conn.close()
+                return jsonify({'error': str(e)}), 500
+
+        @self.app.route('/api/update_player', methods=['POST'])
+        def update_player():
+            data = request.json
+            session_id = data.get('session_id')
+            player_name = data.get('player_name')
+            new_player_name = data.get('new_player_name')
+            score = data.get('score')
+            
+            conn = self.get_db_connection()
+            if conn is None:
+                return jsonify({'error': 'Database connection failed'}), 500
+            cursor = conn.cursor()
+
+            try:
+                if new_player_name:
+                    # Update both name and score
+                    cursor.execute(
+                        'UPDATE scores SET player_name = ?, score = ? WHERE session_id = ? AND player_name = ?',
+                        (new_player_name, score, session_id, player_name)
+                    )
+                else:
+                    # Update only score
+                    cursor.execute(
+                        'UPDATE scores SET score = ? WHERE session_id = ? AND player_name = ?',
+                        (score, session_id, player_name)
+                    )
+                conn.commit()
+                conn.close()
+                return jsonify({'status': 'success'})
+            except sqlite3.Error as e:
+                conn.close()
+                return jsonify({'error': str(e)}), 500
+
+        @self.app.route('/api/reset_players', methods=['POST'])
+        def reset_players():
+            data = request.json
+            session_id = data.get('session_id')
+            
+            conn = self.get_db_connection()
+            if conn is None:
+                return jsonify({'error': 'Database connection failed'}), 500
+            cursor = conn.cursor()
+
+            try:
+                # Delete existing players for this session
+                cursor.execute('DELETE FROM scores WHERE session_id = ?', (session_id,))
+                
+                # Add default players
+                cursor.execute('INSERT INTO scores (session_id, player_name, score) VALUES (?, ?, ?)', (session_id, 'Игрок 1', 0))
+                cursor.execute('INSERT INTO scores (session_id, player_name, score) VALUES (?, ?, ?)', (session_id, 'Игрок 2', 0))
+                
+                conn.commit()
+                conn.close()
+                return jsonify({'status': 'success'})
+            except sqlite3.Error as e:
+                conn.close()
+                return jsonify({'error': str(e)}), 500
+
     def run(self, host: str = '0.0.0.0', port: int = 5555, debug: bool = False) -> None:
         """
         Запуск Flask-приложения
