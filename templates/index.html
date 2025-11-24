@@ -438,11 +438,39 @@
                 // Create the game board
                 await createBoard();
                 
+                // If there's saved board state, restore it
+                if (data.board_state) {
+                    const boardState = JSON.parse(data.board_state);
+                    restoreBoardState(boardState);
+                }
+                
                 // Load players after game initialization
                 setTimeout(loadPlayers, 500); // Wait a bit for the game to initialize
             } catch (error) {
                 console.error('Error initializing game:', error);
             }
+        }
+        
+        function restoreBoardState(boardStateData) {
+            if (!boardStateData || !boardStateData.board) return;
+            
+            // Restore the board array
+            board = boardStateData.board;
+            revealedCells = boardStateData.revealedCount || 0;
+            
+            // Update the UI to reflect the revealed cells
+            for (let i = 0; i < ROWS; i++) {
+                for (let j = 0; j < COLS; j++) {
+                    const cellElement = document.querySelector(`.cell[data-row="${i}"][data-col="${j}"]`);
+                    if (cellElement && board[i][j].isRevealed) {
+                        cellElement.textContent = board[i][j].value;
+                        cellElement.classList.add('revealed', 'opened');
+                    }
+                }
+            }
+            
+            // Update score display
+            scoreDisplay.textContent = `Счёт: ${score}`;
         }
 
         async function createBoard() {
@@ -728,6 +756,23 @@
 
         async function saveGameState() {
             try {
+                // Prepare revealed cells data - track which cells are revealed
+                let revealedCellsData = [];
+                for (let i = 0; i < ROWS; i++) {
+                    for (let j = 0; j < COLS; j++) {
+                        if (board[i][j].isRevealed) {
+                            revealedCellsData.push({row: i, col: j, value: board[i][j].value});
+                        }
+                    }
+                }
+                
+                // Prepare board state data
+                const boardStateData = {
+                    board: board,
+                    revealedCells: revealedCellsData,
+                    revealedCount: revealedCells
+                };
+
                 await fetch('/api/save_state', {
                     method: 'POST',
                     headers: {
@@ -736,8 +781,10 @@
                     body: JSON.stringify({
                         session_id: sessionId,
                         current_round: currentRound,
-                        current_cell: null, // We don't need to track individual cells
-                        score: score
+                        current_cell: null,
+                        score: score,
+                        revealed_cells: JSON.stringify(revealedCellsData),
+                        board_state: JSON.stringify(boardStateData)
                     })
                 });
             } catch (error) {
