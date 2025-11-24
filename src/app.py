@@ -64,6 +64,8 @@ class QuizGameApp:
                 current_round INTEGER DEFAULT 1,
                 current_cell TEXT,
                 score INTEGER DEFAULT 0,
+                revealed_cells TEXT,  -- JSON string of revealed cells
+                board_state TEXT,     -- JSON string of the entire board state
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
@@ -220,16 +222,20 @@ class QuizGameApp:
                 current_round = existing_game[2]
                 current_cell = existing_game[3]
                 score = existing_game[4]
+                revealed_cells = existing_game[5]
+                board_state = existing_game[6]
             else:
                 # Иначе инициализируем новую игру
                 current_round = 1
                 current_cell = None
                 score = 0
+                revealed_cells = None
+                board_state = None
 
                 # Сохраняем начальное состояние игры
                 cursor.execute(
-                    'INSERT OR REPLACE INTO game_states (session_id, current_round, current_cell, score) VALUES (?, ?, ?, ?)',
-                    (session_id, current_round, current_cell, score))
+                    'INSERT OR REPLACE INTO game_states (session_id, current_round, current_cell, score, revealed_cells, board_state) VALUES (?, ?, ?, ?, ?, ?)',
+                    (session_id, current_round, current_cell, score, revealed_cells, board_state))
 
             conn.commit()
             conn.close()
@@ -238,7 +244,9 @@ class QuizGameApp:
                 'session_id': session_id,
                 'current_round': current_round,
                 'current_cell': current_cell,
-                'score': score
+                'score': score,
+                'revealed_cells': revealed_cells,
+                'board_state': board_state
             })
 
         @self.app.route('/api/get_question', methods=['POST'])
@@ -294,6 +302,8 @@ class QuizGameApp:
             current_round = data.get('current_round')
             current_cell = data.get('current_cell')
             score = data.get('score')
+            revealed_cells = data.get('revealed_cells')  # JSON string of revealed cells
+            board_state = data.get('board_state')  # JSON string of the entire board state
 
             conn = self.get_db_connection()
             if conn is None:
@@ -301,8 +311,8 @@ class QuizGameApp:
             cursor = conn.cursor()
 
             cursor.execute(
-                'INSERT OR REPLACE INTO game_states (session_id, current_round, current_cell, score) VALUES (?, ?, ?, ?)',
-                (session_id, current_round, current_cell, score))
+                'INSERT OR REPLACE INTO game_states (session_id, current_round, current_cell, score, revealed_cells, board_state) VALUES (?, ?, ?, ?, ?, ?)',
+                (session_id, current_round, current_cell, score, revealed_cells, board_state))
 
             conn.commit()
             conn.close()
@@ -318,7 +328,7 @@ class QuizGameApp:
                 return jsonify({'error': 'Database connection failed'}), 500
             cursor = conn.cursor()
 
-            cursor.execute('SELECT current_round, current_cell, score FROM game_states WHERE session_id = ?', (session_id,))
+            cursor.execute('SELECT current_round, current_cell, score, revealed_cells, board_state FROM game_states WHERE session_id = ?', (session_id,))
             game_state = cursor.fetchone()
 
             conn.close()
@@ -327,7 +337,9 @@ class QuizGameApp:
                 return jsonify({
                     'current_round': game_state[0],
                     'current_cell': game_state[1],
-                    'score': game_state[2]
+                    'score': game_state[2],
+                    'revealed_cells': game_state[3],
+                    'board_state': game_state[4]
                 })
             else:
                 return jsonify({'error': 'No saved state found'}), 404
