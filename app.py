@@ -72,6 +72,17 @@ def init_db():
         )
     ''')
 
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS opened_cells (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id TEXT,
+            round_num INTEGER,
+            cell_position TEXT,  -- Format: "row,col"
+            cell_value TEXT,
+            opened_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
     # Добавление вопросов в базу данных
     questions = [
         (1, "Какое музыкальное направление считается предшественником рока?", "Блюз", "Музыкальные жанры"),
@@ -447,6 +458,79 @@ def reset_players():
     conn.close()
     
     return jsonify({'status': 'success'})
+
+
+import config
+
+
+@app.route('/api/config', methods=['GET'])
+def get_config():
+    """Return game configuration"""
+    game_settings = config.get_game_settings()
+    return jsonify({
+        'symbols': config.get_symbols(),
+        'settings': game_settings
+    })
+
+
+@app.route('/api/mark_cell_opened', methods=['POST'])
+def mark_cell_opened():
+    data = request.json
+    session_id = data.get('session_id')
+    round_num = data.get('round_num')
+    row = data.get('row')
+    col = data.get('col')
+    cell_value = data.get('cell_value')
+    
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({'error': 'Database connection failed'}), 500
+    cursor = conn.cursor()
+
+    # Check if this cell was already opened in this round for this session
+    cursor.execute('''
+        SELECT id FROM opened_cells 
+        WHERE session_id = ? AND round_num = ? AND cell_position = ?
+    ''', (session_id, round_num, f"{row},{col}"))
+    
+    existing = cursor.fetchone()
+    if existing:
+        # Cell already opened, return error
+        conn.close()
+        return jsonify({'error': 'Cell already opened'}), 400
+
+    # Insert the opened cell record
+    cursor.execute('''
+        INSERT INTO opened_cells (session_id, round_num, cell_position, cell_value) 
+        VALUES (?, ?, ?, ?)
+    ''', (session_id, round_num, f"{row},{col}", cell_value))
+
+    conn.commit()
+    conn.close()
+    
+    return jsonify({'status': 'success'})
+
+
+@app.route('/api/get_opened_cells', methods=['GET'])
+def get_opened_cells():
+    session_id = request.args.get('session_id')
+    round_num = request.args.get('round_num', type=int)
+    
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({'error': 'Database connection failed'}), 500
+    cursor = conn.cursor()
+
+    cursor.execute('''
+        SELECT cell_position, cell_value FROM opened_cells 
+        WHERE session_id = ? AND round_num = ?
+    ''', (session_id, round_num))
+    
+    opened_cells = [{'position': row[0], 'value': row[1]} for row in cursor.fetchall()]
+
+    conn.close()
+    
+    return jsonify({'opened_cells': opened_cells})
 
 
 if __name__ == '__main__':
