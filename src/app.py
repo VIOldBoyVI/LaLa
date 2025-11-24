@@ -71,6 +71,18 @@ class QuizGameApp:
         ''')
 
         cursor.execute('''
+            CREATE TABLE IF NOT EXISTS opened_cells (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id TEXT NOT NULL,
+                round_num INTEGER NOT NULL,
+                row_num INTEGER NOT NULL,
+                col_num INTEGER NOT NULL,
+                cell_value TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+
+        cursor.execute('''
             CREATE TABLE IF NOT EXISTS scores (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 session_id TEXT,
@@ -440,6 +452,87 @@ class QuizGameApp:
                         'UPDATE scores SET score = ? WHERE session_id = ? AND player_name = ?',
                         (score, session_id, player_name)
                     )
+                conn.commit()
+                conn.close()
+                return jsonify({'status': 'success'})
+            except sqlite3.Error as e:
+                conn.close()
+                return jsonify({'error': str(e)}), 500
+
+        @self.app.route('/api/config', methods=['GET'])
+        def get_config():
+            # Return the game configuration
+            config = {
+                'symbols': ['★', '♥', '♦', '♣', '♠', '♪', '♫', '☀', '☁', '☂'],
+                'settings': {
+                    'round_counters': [0, 20, 20, 20, 20, 10]  # Number of cells to open per round
+                }
+            }
+            return jsonify(config)
+
+        @self.app.route('/api/get_opened_cells', methods=['GET'])
+        def get_opened_cells():
+            session_id = request.args.get('session_id')
+            round_num = request.args.get('round_num', type=int)
+            
+            conn = self.get_db_connection()
+            if conn is None:
+                return jsonify({'error': 'Database connection failed'}), 500
+            cursor = conn.cursor()
+
+            try:
+                # Get all opened cells for this session and round
+                cursor.execute('''
+                    SELECT row_num, col_num, cell_value 
+                    FROM opened_cells 
+                    WHERE session_id = ? AND round_num = ?
+                ''', (session_id, round_num))
+                
+                opened_cells = []
+                for row in cursor.fetchall():
+                    opened_cells.append({
+                        'position': f"{row[0]},{row[1]}",  # row,col format
+                        'value': row[2]
+                    })
+                
+                conn.close()
+                return jsonify({'opened_cells': opened_cells})
+            except sqlite3.Error as e:
+                conn.close()
+                return jsonify({'error': str(e)}), 500
+
+        @self.app.route('/api/mark_cell_opened', methods=['POST'])
+        def mark_cell_opened():
+            data = request.json
+            session_id = data.get('session_id')
+            round_num = data.get('round_num')
+            row = data.get('row')
+            col = data.get('col')
+            cell_value = data.get('cell_value')
+            
+            conn = self.get_db_connection()
+            if conn is None:
+                return jsonify({'error': 'Database connection failed'}), 500
+            cursor = conn.cursor()
+
+            try:
+                # Check if cell is already opened
+                cursor.execute('''
+                    SELECT id FROM opened_cells 
+                    WHERE session_id = ? AND round_num = ? AND row_num = ? AND col_num = ?
+                ''', (session_id, round_num, row, col))
+                
+                existing = cursor.fetchone()
+                if existing:
+                    conn.close()
+                    return jsonify({'error': 'Cell already opened'}), 400
+                
+                # Insert the opened cell
+                cursor.execute('''
+                    INSERT INTO opened_cells (session_id, round_num, row_num, col_num, cell_value)
+                    VALUES (?, ?, ?, ?, ?)
+                ''', (session_id, round_num, row, col, cell_value))
+                
                 conn.commit()
                 conn.close()
                 return jsonify({'status': 'success'})
