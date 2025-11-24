@@ -360,12 +360,14 @@
     </div>
 
     <script>
-        // Game constants
+        // Import game constants from config via API
+        let SYMBOLS = [];
+        let ROUND_COUNTERS = [];
         const ROWS = 10;
         const COLS = 10;
         const TOTAL_CELLS = ROWS * COLS; // 100 cells
         const NUM_QUESTIONS = 90; // Numbers representing questions
-        const NUM_SYMBOLS = 10; // Special symbols
+        let NUM_SYMBOLS = 0; // Will be set after loading config
         
         // Game state
         let board = [];
@@ -380,7 +382,6 @@
         let roundInfo = document.getElementById('roundInfo');
         let currentQuestionId = null;
         let revealedCells = 0;
-        let roundCounters = [0, 20, 20, 20, 20, 10]; // Количество вопросов в каждом раунде
         let isBreakActive = false;
         let breakInterval = null;
         
@@ -393,11 +394,31 @@
         // Initialize the game
         initGame();
 
+        async function loadConfig() {
+            try {
+                const response = await fetch('/api/config');
+                const configData = await response.json();
+                
+                SYMBOLS = configData.symbols;
+                NUM_SYMBOLS = SYMBOLS.length;
+                ROUND_COUNTERS = configData.settings.round_counters;
+            } catch (error) {
+                console.error('Error loading configuration:', error);
+                // Use default values if config loading fails
+                SYMBOLS = ['★', '♥', '♦', '♣', '♠', '♪', '♫', '☀', '☁', '☂'];
+                NUM_SYMBOLS = SYMBOLS.length;
+                ROUND_COUNTERS = [0, 20, 20, 20, 20, 10];
+            }
+        }
+
         function generateSessionId() {
             return 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
         }
 
         async function initGame() {
+            // Load configuration first
+            await loadConfig();
+            
             try {
                 const response = await fetch('/api/init_game', {
                     method: 'POST',
@@ -413,10 +434,9 @@
                 score = data.score || 0;
                 scoreDisplay.textContent = `Счёт: ${score}`;
                 updateRoundInfo();
-                // updateTotalQuestions(); // This function updates an element that doesn't exist
 
                 // Create the game board
-                createBoard();
+                await createBoard();
                 
                 // If there's saved board state, restore it
                 if (data.board_state) {
@@ -453,7 +473,7 @@
             scoreDisplay.textContent = `Счёт: ${score}`;
         }
 
-        function createBoard() {
+        async function createBoard() {
             // Clear existing elements
             gameBoard.innerHTML = '';
             colLabels.innerHTML = '';
@@ -477,6 +497,16 @@
                 rowLabels.appendChild(label);
             }
 
+            // Get already opened cells from the server
+            const openedCellsResponse = await fetch(`/api/get_opened_cells?session_id=${sessionId}&round_num=${currentRound}`);
+            const openedCellsData = await openedCellsResponse.json();
+            const openedPositions = {};
+            if (openedCellsData.opened_cells) {
+                openedCellsData.opened_cells.forEach(cell => {
+                    openedPositions[cell.position] = cell.value;
+                });
+            }
+
             // Create array of values for the board
             let values = [];
 
@@ -486,9 +516,8 @@
             }
 
             // Add special symbols
-            const symbols = ['★', '♥', '♦', '♣', '♠', '♪', '♫', '☀', '☁', '☂'];
             for (let i = 0; i < NUM_SYMBOLS; i++) {
-                values.push(symbols[i]);
+                values.push(SYMBOLS[i]);
             }
 
             // Shuffle the values array
@@ -498,17 +527,31 @@
             for (let i = 0; i < ROWS; i++) {
                 board[i] = [];
                 for (let j = 0; j < COLS; j++) {
-                    const cellValue = values.pop();
+                    const position = `${i},${j}`;
+                    let cellValue;
+                    
+                    // Check if this cell was already opened in previous sessions
+                    if (openedPositions[position]) {
+                        cellValue = openedPositions[position];
+                    } else {
+                        cellValue = values.pop();
+                    }
+
                     board[i][j] = {
                         value: cellValue,
-                        isRevealed: false
+                        isRevealed: position in openedPositions  // Mark as revealed if it was already opened
                     };
 
                     const cell = document.createElement('div');
                     cell.className = 'cell';
+                    if (board[i][j].isRevealed) {
+                        cell.classList.add('revealed');
+                        cell.textContent = cellValue;
+                    } else {
+                        cell.textContent = ''; // Keep cell empty initially to mimic closed state like Minesweeper
+                    }
                     cell.dataset.row = i;
                     cell.dataset.col = j;
-                    cell.textContent = '';
 
                     cell.addEventListener('click', () => {
                         handleCellClick(i, j);
@@ -517,6 +560,9 @@
                     gameBoard.appendChild(cell);
                 }
             }
+            
+            // Count revealed cells from the loaded state
+            revealedCells = Object.keys(openedPositions).length;
         }
 
         // Fisher-Yates shuffle algorithm
@@ -546,8 +592,44 @@
             const cellElement = document.querySelector(`.cell[data-row="${row}"][data-col="${col}"]`);
             const cellData = board[row][col];
 
+            // Check if cell is already revealed to prevent duplicates
+            if (cellData.isRevealed) {
+                return; // Cell already opened, do nothing
+            }
+
+            // Mark the cell as opened in the database
+            try {
+                const response = await fetch('/api/mark_cell_opened', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        session_id: sessionId,
+                        round_num: currentRound,
+                        row: row,
+                        col: col,
+                        cell_value: cellData.value
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    if (errorData.error === 'Cell already opened') {
+                        // Cell was already marked as opened in the database
+                        cellData.isRevealed = true;
+                        cellElement.textContent = cellData.value;
+                        cellElement.classList.add('revealed');
+                        return;
+                    }
+                }
+            } catch (error) {
+                console.error('Error marking cell as opened:', error);
+                return; // Don't proceed if there's an error
+            }
+
             cellElement.textContent = cellData.value;
-            cellElement.classList.add('revealed', 'opened');
+            cellElement.classList.add('revealed');
 
             cellData.isRevealed = true;
             revealedCells++;
@@ -565,11 +647,8 @@
                 questionDisplay.style.display = 'block';
             }
 
-            // Update opened questions counter
-            // openedQuestionsDisplay.textContent = revealedCells; // This element doesn't exist
-
             // Check if round is finished
-            if (revealedCells >= roundCounters[currentRound]) {
+            if (revealedCells >= ROUND_COUNTERS[currentRound]) {
                 nextRound();
             }
 
@@ -789,6 +868,12 @@
             if (playerRows.length <= 2) {
                 alert('Должно быть как минимум 2 игрока');
                 return;
+            }
+            
+            // Ask for confirmation before removing the player
+            const confirmed = confirm(`Вы уверены, что хотите удалить игрока "${playerName}"?`);
+            if (!confirmed) {
+                return; // User cancelled the deletion
             }
             
             try {
