@@ -52,9 +52,9 @@
 
 1. Запустите приложение:
    ```bash
-   python src/app.py
+   python run.py
    ```
-2. Откройте в браузере: http://localhost:5555
+2. Откройте в браузере: http://127.0.0.1:5555
 
 ## API endpoints
 
