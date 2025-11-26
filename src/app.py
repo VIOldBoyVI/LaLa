@@ -17,7 +17,8 @@ class QuizGameApp:
     """
     
     def __init__(self):
-        self.app = Flask(__name__)
+        # Set template folder to use templates from the main directory
+        self.app = Flask(__name__, template_folder='../templates')
         self.app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'default_secret_key')
         CORS(self.app)  # Enable CORS for all routes
         self.DATABASE = 'database.db'

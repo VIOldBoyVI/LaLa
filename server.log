@@ -8,6 +8,8 @@
 WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
  * Running on all addresses (0.0.0.0)
  * Running on http://127.0.0.1:5555
- * Running on http://21.0.12.205:5555
+ * Running on http://21.0.7.214:5555
 Press CTRL+C to quit
-127.0.0.1 - - [25/Nov/2025 07:49:59] "POST /api/init_game HTTP/1.1" 200 -
+127.0.0.1 - - [26/Nov/2025 13:43:25] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [26/Nov/2025 13:43:27] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [26/Nov/2025 13:43:42] "GET /api/config HTTP/1.1" 200 -
