@@ -244,7 +244,6 @@
             </div>
         </div>
         
-        <div class="score-display" id="scoreDisplay">Счёт: 0</div>
     </div>
 
     <div class="break-screen" id="breakScreen">
@@ -272,7 +271,6 @@
         let gameBoard = document.getElementById('gameBoard');
         let colLabels = document.getElementById('colLabels');
         let rowLabels = document.getElementById('rowLabels');
-        let scoreDisplay = document.getElementById('scoreDisplay');
 
         let currentQuestionId = null;
         let revealedCells = 0;
@@ -328,7 +326,6 @@
 
                 currentRound = data.current_round || 1;
                 score = data.score || 0;
-                scoreDisplay.textContent = `Счёт: ${score}`;
                 updateRoundInfo();
 
                 // Create the game board
@@ -364,7 +361,6 @@
             }
             
             // Update score display
-            scoreDisplay.textContent = `Счёт: ${score}`;
         }
 
         async function createBoard() {
@@ -574,7 +570,6 @@
                     // Automatically add points after showing the question
                     setTimeout(async () => {
                         score += 10;
-                        scoreDisplay.textContent = `Счёт: ${score}`;
                         await saveGameState();
                     }, 3000); // Show question for 3 seconds before adding points
                 }
@@ -596,7 +591,6 @@
             score = 0;
             revealedCells = 0;
             isBreakActive = false;
-            scoreDisplay.textContent = `Счёт: ${score}`;
 
             
             // Close break screen if it's open

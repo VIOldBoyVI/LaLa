@@ -1,1 +1,1 @@
-Nothing needs to be added to .gitignore since only a source file (templates/index.html) was modified and no build artifacts, dependencies, or temporary files were present in the changes.
+Nothing should be ignored based on the provided file changes, as they only include source/config files (README.md, config.py, templates/index.html) without any build artifacts, dependencies, or temporary files.
