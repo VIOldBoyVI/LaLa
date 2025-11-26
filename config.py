@@ -1,5 +1,5 @@
 # Configuration file for symbols
-SYMBOLS = ['★', '♥', '♦', '♣', '♠', '♪', '♫', '☀', '☁', '☂']
+SYMBOLS = ['*', '+', '%', '@', '#', '&', '=', '~', '^', '!']  # Friendlier symbols
 
 # Game settings
 ROWS = 10
