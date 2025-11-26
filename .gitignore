@@ -1,10 +1,1 @@
-```
-# Compiled and build artifacts
-*.pyc
-__pycache__/
-# Logs and temp files
-*.log
-server.log
-# Database files
-database.db
-```
+Nothing needs to be added to .gitignore since only a source file (templates/index.html) was modified and no build artifacts, dependencies, or temporary files were present in the changes.

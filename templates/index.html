@@ -70,7 +70,7 @@
         }
 
         .row-label {
-            height: 60px;
+            height: 70px;
             width: 40px;
             display: flex;
             align-items: center;
@@ -208,107 +208,7 @@
             margin-top: 20px;
         }
         
-        .players-container {
-            width: 100%;
-            max-width: 600px;
-            margin-bottom: 20px;
-        }
-        
-        .players-table {
-            width: 100%;
-            border-collapse: collapse;
-            background-color: rgba(255, 255, 255, 0.9);
-            border-radius: 10px;
-            overflow: hidden;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-        }
-        
-        .players-table th,
-        .players-table td {
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid #ddd;
-        }
-        
-        .players-table th {
-            background-color: #1e90ff;
-            color: white;
-            font-weight: bold;
-        }
-        
-        .player-input {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            font-size: 14px;
-        }
-        
-        .score-controls {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-        
-        .score-btn {
-            width: 30px;
-            height: 30px;
-            border: none;
-            border-radius: 50%;
-            background-color: #1e90ff;
-            color: white;
-            font-size: 16px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        .score-btn:hover {
-            background-color: #0066cc;
-        }
-        
-        .remove-player-btn {
-            width: 30px;
-            height: 30px;
-            border: none;
-            border-radius: 50%;
-            background-color: #ff4444;
-            color: white;
-            font-size: 16px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        .remove-player-btn:hover {
-            background-color: #cc0000;
-        }
-        
-        .remove-player-btn:disabled {
-            background-color: #cccccc;
-            cursor: not-allowed;
-        }
-        
-        .add-player-btn {
-            width: 40px;
-            height: 40px;
-            border: none;
-            border-radius: 50%;
-            background-color: #228B22;
-            color: white;
-            font-size: 20px;
-            cursor: pointer;
-            margin-top: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        .add-player-btn:hover {
-            background-color: #006400;
-        }
+
         
         .score-display {
             font-size: 18px;
@@ -344,11 +244,7 @@
             </div>
         </div>
         
-        <div class="question-display" id="questionDisplay">
-            <!-- Question will be displayed here -->
-        </div>
         <div class="score-display" id="scoreDisplay">Счёт: 0</div>
-        <div class="message" id="message"></div>
     </div>
 
     <div class="break-screen" id="breakScreen">
@@ -377,14 +273,13 @@
         let colLabels = document.getElementById('colLabels');
         let rowLabels = document.getElementById('rowLabels');
         let scoreDisplay = document.getElementById('scoreDisplay');
-        let questionDisplay = document.getElementById('questionDisplay');
+
         let currentQuestionId = null;
         let revealedCells = 0;
         let isBreakActive = false;
         let breakInterval = null;
         
-        // Get the message element
-        let messageDisplay = document.getElementById('message');
+
 
         // Сохраняем session ID в localStorage
         localStorage.setItem('sessionId', sessionId);
@@ -640,13 +535,12 @@
             const isNumber = !isNaN(cellData.value);
 
             if (isNumber) {
-                messageDisplay.textContent = `Открыт вопрос #${cellData.value}!`;
+
                 await askQuestion(cellData.value);
             } else {
-                messageDisplay.textContent = `Открыт символ: ${cellData.value}`;
+
                 // Update question display to show "Ла-Ла-Раунд!" with the current background color
-                questionDisplay.textContent = 'Ла-Ла-Раунд!';
-                questionDisplay.style.display = 'block';
+
             }
 
             // Check if round is finished
@@ -675,8 +569,7 @@
 
                 if (data.question_id) {
                     currentQuestionId = data.question_id;
-                    questionDisplay.textContent = data.question_text;
-                    questionDisplay.style.display = 'block';
+
                     
                     // Automatically add points after showing the question
                     setTimeout(async () => {
@@ -704,8 +597,7 @@
             revealedCells = 0;
             isBreakActive = false;
             scoreDisplay.textContent = `Счёт: ${score}`;
-            questionDisplay.textContent = '';
-            messageDisplay.textContent = '';
+
             
             // Close break screen if it's open
             document.getElementById('breakScreen').style.display = 'none';
@@ -832,55 +724,9 @@
             }
         }
         
-        async function resetPlayers() {
-            try {
-                await fetch('/api/reset_players', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ session_id: sessionId })
-                });
-                
-                // Clear current table
-                document.getElementById('playersTableBody').innerHTML = '';
-                
-                // Add default players
-                addPlayerToTable('Игрок 1', 0, true);
-                addPlayerToTable('Игрок 2', 0, true);
-            } catch (error) {
-                console.error('Error resetting players:', error);
-            }
-        }
+
         
-        async function addPlayer(playerName = null) {
-            // Generate a unique player name if not provided
-            if (!playerName) {
-                const playerCount = document.querySelectorAll('#playersTableBody tr').length;
-                playerName = `Игрок ${playerCount + 1}`;
-            }
-            
-            try {
-                const response = await fetch('/api/add_player', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ 
-                        session_id: sessionId,
-                        player_name: playerName
-                    })
-                });
-                
-                const data = await response.json();
-                
-                if (data.status === 'success') {
-                    addPlayerToTable(playerName, 0, false);
-                }
-            } catch (error) {
-                console.error('Error adding player:', error);
-            }
-        }
+
         
         async function removePlayer(playerName) {
             // Check if there are at least 2 players remaining
