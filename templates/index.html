@@ -83,17 +83,33 @@
 
         .board {
             display: grid;
-            grid-template-columns: repeat(10, 60px);
-            grid-template-rows: repeat(10, 60px);
+            grid-template-columns: repeat(10, 70px);
+            grid-template-rows: repeat(10, 70px);
             gap: 5px;
             background-color: rgba(0, 0, 0, 0.2);
             padding: 10px;
             border-radius: 10px;
         }
+        
+        .start-game-btn {
+            width: 150px;
+            height: 40px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-bottom: 20px;
+        }
+        
+        .start-game-btn:hover {
+            background-color: #45a049;
+        }
 
         .col-labels {
             display: grid;
-            grid-template-columns: repeat(10, 60px);
+            grid-template-columns: repeat(10, 70px);
             gap: 5px;
             margin-left: 50px;
             margin-bottom: 10px;
@@ -110,8 +126,8 @@
         }
 
         .cell {
-            width: 60px;
-            height: 60px;
+            width: 70px;
+            height: 70px;
             background: linear-gradient(145deg, #ff8c00, #ff6600);
             border: none;
             border-radius: 8px;
@@ -310,26 +326,9 @@
         <h2>Викторина с элементами караоке</h2>
     </div>
 
-    <div class="round-info" id="roundInfo">Раунд 1</div>
-
     <div class="game-container">
-        <!-- Players table -->
-        <div class="players-container">
-            <table class="players-table" id="playersTable">
-                <thead>
-                    <tr>
-                        <th>Игрок/Команда</th>
-                        <th>Счёт</th>
-                        <th>Управление</th>
-                    </tr>
-                </thead>
-                <tbody id="playersTableBody">
-                    <!-- Players will be added here dynamically -->
-                </tbody>
-            </table>
-            <div class="add-player-controls">
-                <button id="addPlayerBtn" class="add-player-btn">+</button>
-            </div>
+        <div class="controls">
+            <button id="startGameBtn" class="start-game-btn">Начать игру</button>
         </div>
 
         <div class="col-labels" id="colLabels">
@@ -379,7 +378,6 @@
         let rowLabels = document.getElementById('rowLabels');
         let scoreDisplay = document.getElementById('scoreDisplay');
         let questionDisplay = document.getElementById('questionDisplay');
-        let roundInfo = document.getElementById('roundInfo');
         let currentQuestionId = null;
         let revealedCells = 0;
         let isBreakActive = false;
@@ -393,6 +391,9 @@
 
         // Initialize the game
         initGame();
+
+        // Add event listener for Start Game button
+        document.getElementById('startGameBtn').addEventListener('click', startNewGame);
 
         async function loadConfig() {
             try {
@@ -444,8 +445,6 @@
                     restoreBoardState(boardState);
                 }
                 
-                // Load players after game initialization
-                setTimeout(loadPlayers, 500); // Wait a bit for the game to initialize
             } catch (error) {
                 console.error('Error initializing game:', error);
             }
@@ -497,14 +496,17 @@
                 rowLabels.appendChild(label);
             }
 
-            // Get already opened cells from the server
-            const openedCellsResponse = await fetch(`/api/get_opened_cells?session_id=${sessionId}&round_num=${currentRound}`);
-            const openedCellsData = await openedCellsResponse.json();
-            const openedPositions = {};
-            if (openedCellsData.opened_cells) {
-                openedCellsData.opened_cells.forEach(cell => {
-                    openedPositions[cell.position] = cell.value;
-                });
+            // For regular game continuation, load previously opened cells from the server
+            let openedPositions = {};
+            // Only load opened cells from DB if we're not starting a new game
+            if (currentRound > 1 || (currentRound === 1 && score > 0)) {
+                const openedCellsResponse = await fetch(`/api/get_opened_cells?session_id=${sessionId}&round_num=${currentRound}`);
+                const openedCellsData = await openedCellsResponse.json();
+                if (openedCellsData.opened_cells) {
+                    openedCellsData.opened_cells.forEach(cell => {
+                        openedPositions[cell.position] = cell.value;
+                    });
+                }
             }
 
             // Create array of values for the board
@@ -690,11 +692,29 @@
 
         function updateRoundInfo() {
             if (isBreakActive) {
-                roundInfo.textContent = 'Перерыв';
+                document.getElementById('breakScreen').style.display = 'flex';
             } else {
-                roundInfo.textContent = `Раунд ${currentRound}`;
-                // currentPlayerDisplay.textContent = `Раунд ${currentRound}`; // This element doesn't exist
+                document.getElementById('breakScreen').style.display = 'none';
             }
+        }
+
+        function startNewGame() {
+            currentRound = 1;
+            score = 0;
+            revealedCells = 0;
+            isBreakActive = false;
+            scoreDisplay.textContent = `Счёт: ${score}`;
+            questionDisplay.textContent = '';
+            messageDisplay.textContent = '';
+            
+            // Close break screen if it's open
+            document.getElementById('breakScreen').style.display = 'none';
+            
+            // Create a new board with shuffled content
+            createBoard();
+            
+            // Save the new game state
+            saveGameState();
         }
 
         function updateTotalQuestions() {

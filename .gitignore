@@ -1,13 +1,18 @@
 ```
-# Compiled Python files
-*.pyc
-__pycache__/
-
-# Database files
-database.db
-src/database.db
-
-# Log files
+# Logs and temp files
 *.log
-server.log
+*.tmp
+*.swp
+
+# Environment
+.env
+.env.local
+.env.*
+
+# Editors
+.vscode/
+.idea/
+
+# Original rules preserved
+*.log
 ```
