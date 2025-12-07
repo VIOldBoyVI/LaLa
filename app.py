@@ -3,6 +3,7 @@ from flask_cors import CORS
 import sqlite3
 import os
 import random
+import json
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
@@ -110,9 +111,32 @@ def quiz_game():
     return render_template('quiz-game.html')
 
 
+@app.route('/api/save_board_layout', methods=['POST'])
+def save_board_layout():
+    data = request.json
+    session_id = data.get('session_id')
+    board_layout = data.get('board_layout')
+    
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({'error': 'Database connection failed'}), 500
+    cursor = conn.cursor()
+
+    # Update the board_state in game_states table
+    cursor.execute(
+        'INSERT OR REPLACE INTO game_states (session_id, current_round, current_cell, score, board_state) VALUES (?, ?, ?, ?, ?)',
+        (session_id, 1, None, 0, json.dumps(board_layout) if board_layout else None))
+
+    conn.commit()
+    conn.close()
+
+    return jsonify({'status': 'success'})
+
+
 @app.route('/api/init_game', methods=['POST'])
 def init_game():
     session_id = request.json.get('session_id')
+    board_layout = request.json.get('board_layout')  # New parameter to store board layout
     conn = get_db_connection()
     if conn is None:
         return jsonify({'error': 'Database connection failed'}), 500
@@ -133,10 +157,10 @@ def init_game():
         current_cell = None
         score = 0
 
-        # Сохраняем начальное состояние игры
+        # Сохраняем начальное состояние игры с доской
         cursor.execute(
-            'INSERT OR REPLACE INTO game_states (session_id, current_round, current_cell, score) VALUES (?, ?, ?, ?)',
-            (session_id, current_round, current_cell, score))
+            'INSERT OR REPLACE INTO game_states (session_id, current_round, current_cell, score, board_state) VALUES (?, ?, ?, ?, ?)',
+            (session_id, current_round, current_cell, score, json.dumps(board_layout) if board_layout else None))
 
     conn.commit()
     conn.close()
@@ -229,7 +253,7 @@ def load_state():
         return jsonify({'error': 'Database connection failed'}), 500
     cursor = conn.cursor()
 
-    cursor.execute('SELECT current_round, current_cell, score FROM game_states WHERE session_id = ?', (session_id,))
+    cursor.execute('SELECT current_round, current_cell, score, board_state FROM game_states WHERE session_id = ?', (session_id,))
     game_state = cursor.fetchone()
 
     # Get players for this session
@@ -239,10 +263,12 @@ def load_state():
     conn.close()
 
     if game_state:
+        board_state = json.loads(game_state[3]) if game_state[3] else None
         return jsonify({
             'current_round': game_state[0],
             'current_cell': game_state[1],
             'score': game_state[2],
+            'board_state': board_state,
             'players': players
         })
     else:
