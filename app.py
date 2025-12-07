@@ -1,32 +1,43 @@
+#!/usr/bin/env python3
+"""
+ЛА-ЛА-ГЕЙМ - Викторина с элементами караоке
+Основное Flask-приложение с улучшенной архитектурой
+"""
 from flask import Flask, render_template, request, jsonify
 from flask_cors import CORS
 import sqlite3
 import os
 import random
 import json
+from typing import Optional, Dict, Any
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 DATABASE = 'database.db'
 
 
-def get_db_connection():
-    """Create a database connection with proper error handling"""
+def get_db_connection() -> Optional[sqlite3.Connection]:
+    """
+    Создает соединение с базой данных с надлежащей обработкой ошибок
+    """
     try:
         conn = sqlite3.connect(DATABASE)
-        conn.row_factory = sqlite3.Row  # This allows us to access columns by name
+        conn.row_factory = sqlite3.Row  # Позволяет обращаться к столбцам по имени
         return conn
     except sqlite3.Error as e:
         print(f"Database connection error: {e}")
         return None
 
 
-def init_db():
-    """Инициализация базы данных"""
+def init_db() -> None:
+    """
+    Инициализирует базу данных, создавая таблицы и заполняя начальными данными
+    """
     conn = get_db_connection()
     if conn is None:
         print("Failed to connect to database for initialization")
         return
+    
     cursor = conn.cursor()
 
     # Создание таблиц
@@ -34,19 +45,33 @@ def init_db():
         CREATE TABLE IF NOT EXISTS questions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             round_num INTEGER,
-            question_text TEXT,
-            answer TEXT,
-            theme TEXT
+            question_text TEXT NOT NULL,
+            answer TEXT NOT NULL,
+            theme TEXT NOT NULL
         )
     ''')
 
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS game_states (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            session_id TEXT UNIQUE,
-            current_round INTEGER,
+            session_id TEXT UNIQUE NOT NULL,
+            current_round INTEGER DEFAULT 1,
             current_cell TEXT,
-            score INTEGER,
+            score INTEGER DEFAULT 0,
+            revealed_cells TEXT,  -- JSON string of revealed cells
+            board_state TEXT,     -- JSON string of the entire board state
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS opened_cells (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id TEXT NOT NULL,
+            round_num INTEGER NOT NULL,
+            row_num INTEGER NOT NULL,
+            col_num INTEGER NOT NULL,
+            cell_value TEXT NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
@@ -73,24 +98,11 @@ def init_db():
         )
     ''')
 
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS opened_cells (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            session_id TEXT,
-            round_num INTEGER,
-            row_num INTEGER,
-            col_num INTEGER,
-            cell_value TEXT,
-            opened_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-
-    # Добавление вопросов в базу данных из config.py
+    # Добавление вопросов в базу данных
     from config import get_questions
     questions = get_questions()
 
-    cursor.executemany('INSERT OR IGNORE INTO questions (round_num, question_text, answer, theme) VALUES (?, ?, ?, ?)',
-                       questions)
+    cursor.executemany('INSERT OR IGNORE INTO questions (round_num, question_text, answer, theme) VALUES (?, ?, ?, ?)', questions)
 
     conn.commit()
     conn.close()
@@ -116,16 +128,29 @@ def save_board_layout():
     data = request.json
     session_id = data.get('session_id')
     board_layout = data.get('board_layout')
-    
+
+    import json
+    board_layout_str = json.dumps(board_layout) if board_layout else None
+
     conn = get_db_connection()
     if conn is None:
         return jsonify({'error': 'Database connection failed'}), 500
     cursor = conn.cursor()
 
-    # Update the board_state in game_states table
-    cursor.execute(
-        'INSERT OR REPLACE INTO game_states (session_id, current_round, current_cell, score, board_state) VALUES (?, ?, ?, ?, ?)',
-        (session_id, 1, None, 0, json.dumps(board_layout) if board_layout else None))
+    # First, try to load existing game state
+    cursor.execute('SELECT * FROM game_states WHERE session_id = ?', (session_id,))
+    existing_game = cursor.fetchone()
+
+    if existing_game:
+        # Update the board_state field
+        cursor.execute(
+            'UPDATE game_states SET board_state = ? WHERE session_id = ?',
+            (board_layout_str, session_id))
+    else:
+        # Create new game state with board layout
+        cursor.execute(
+            'INSERT INTO game_states (session_id, board_state) VALUES (?, ?)',
+            (session_id, board_layout_str))
 
     conn.commit()
     conn.close()
@@ -150,16 +175,20 @@ def init_game():
         current_round = existing_game[2]
         current_cell = existing_game[3]
         score = existing_game[4]
+        revealed_cells = existing_game[5]
+        board_state = existing_game[6]
     else:
         # Иначе инициализируем новую игру
         current_round = 1
         current_cell = None
         score = 0
+        revealed_cells = None
+        board_state = None
 
         # Сохраняем начальное состояние игры
         cursor.execute(
-            'INSERT OR REPLACE INTO game_states (session_id, current_round, current_cell, score) VALUES (?, ?, ?, ?)',
-            (session_id, current_round, current_cell, score))
+            'INSERT OR REPLACE INTO game_states (session_id, current_round, current_cell, score, revealed_cells, board_state) VALUES (?, ?, ?, ?, ?, ?)',
+            (session_id, current_round, current_cell, score, revealed_cells, board_state))
 
     conn.commit()
     conn.close()
@@ -168,7 +197,9 @@ def init_game():
         'session_id': session_id,
         'current_round': current_round,
         'current_cell': current_cell,
-        'score': score
+        'score': score,
+        'revealed_cells': revealed_cells,
+        'board_state': board_state
     })
 
 
@@ -227,6 +258,11 @@ def save_state():
     current_round = data.get('current_round')
     current_cell = data.get('current_cell')
     score = data.get('score')
+    revealed_cells = data.get('revealed_cells')  # JSON string of revealed cells
+    board_state = data.get('board_state')  # JSON string of the entire board state
+
+    import json
+    board_state_str = json.dumps(board_state) if board_state else None
 
     conn = get_db_connection()
     if conn is None:
@@ -234,8 +270,8 @@ def save_state():
     cursor = conn.cursor()
 
     cursor.execute(
-        'INSERT OR REPLACE INTO game_states (session_id, current_round, current_cell, score) VALUES (?, ?, ?, ?)',
-        (session_id, current_round, current_cell, score))
+        'INSERT OR REPLACE INTO game_states (session_id, current_round, current_cell, score, revealed_cells, board_state) VALUES (?, ?, ?, ?, ?, ?)',
+        (session_id, current_round, current_cell, score, revealed_cells, board_state_str))
 
     conn.commit()
     conn.close()
@@ -252,7 +288,7 @@ def load_state():
         return jsonify({'error': 'Database connection failed'}), 500
     cursor = conn.cursor()
 
-    cursor.execute('SELECT current_round, current_cell, score, board_state FROM game_states WHERE session_id = ?', (session_id,))
+    cursor.execute('SELECT current_round, current_cell, score, revealed_cells, board_state FROM game_states WHERE session_id = ?', (session_id,))
     game_state = cursor.fetchone()
 
     # Get players for this session
@@ -262,11 +298,22 @@ def load_state():
     conn.close()
 
     if game_state:
-        board_state = json.loads(game_state[3]) if game_state[3] else None
+        import json
+        board_state = game_state[4]
+        # Try to parse board_state as JSON if it's not None
+        if board_state:
+            try:
+                parsed_board_state = json.loads(board_state)
+                board_state = parsed_board_state
+            except (json.JSONDecodeError, TypeError):
+                # If parsing fails, return as is (it might already be parsed)
+                pass
+
         return jsonify({
             'current_round': game_state[0],
             'current_cell': game_state[1],
             'score': game_state[2],
+            'revealed_cells': game_state[3],
             'board_state': board_state,
             'players': players
         })
@@ -402,11 +449,19 @@ import config
 @app.route('/api/config', methods=['GET'])
 def get_config():
     """Return game configuration"""
-    game_settings = config.get_game_settings()
-    return jsonify({
-        'symbols': config.get_symbols(),
-        'settings': game_settings
-    })
+    from config import get_symbols, get_game_settings, get_body_style, get_cell_style, get_hover_cell_style, get_revealed_cell_style, get_number_cell_style, get_symbol_cell_style
+    game_settings = get_game_settings()
+    config = {
+        'symbols': get_symbols(),
+        'settings': game_settings,
+        'body_style': get_body_style(),
+        'cell_style': get_cell_style(),
+        'hover_cell_style': get_hover_cell_style(),
+        'revealed_cell_style': get_revealed_cell_style(),
+        'number_cell_style': get_number_cell_style(),
+        'symbol_cell_style': get_symbol_cell_style()
+    }
+    return jsonify(config)
 
 
 @app.route('/api/mark_cell_opened', methods=['POST'])
@@ -517,6 +572,6 @@ if __name__ == '__main__':
     init_db()
     app.run(
         host='0.0.0.0',
-        port=8080,
+        port=5555,
         debug=False  # В продакшене debug=False более безопасен
     )

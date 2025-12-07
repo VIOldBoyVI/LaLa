@@ -6,15 +6,16 @@
 """
 import os
 import sys
-from src.app import create_app
+from app import app, init_db
+
 
 def main():
     """Основная функция запуска приложения"""
     print("ЛА-ЛА-ГЕЙМ - Викторина с элементами караоке")
     print("Инициализация базы данных...")
     
-    # Создание и запуск приложения
-    app = create_app()
+    # Инициализация базы данных
+    init_db()
     
     print("База данных инициализирована.")
     print("Запуск веб-сервера...")
@@ -26,6 +27,7 @@ def main():
         port=5555,
         debug=False  # В продакшене debug=False более безопасен
     )
+
 
 if __name__ == '__main__':
     main()
