@@ -228,7 +228,7 @@
         <h2>Викторина с элементами караоке</h2>
     </div>
 
-    <button id="resetBtn" class="reset-btn">↻</button>
+    <button id="resetBtn" class="reset-btn" title="Начать заново">↻</button>
 
     <div class="game-container">
 
@@ -311,12 +311,13 @@
                     existingState = await loadResponse.json();
                 }
                 
-                // Create the game board - either from saved layout or fresh
+                // Create the game board - only from saved layout, never fresh on init
                 if (existingState && existingState.board_state) {
                     // Load the saved board layout
                     await createBoardFromLayout(existingState.board_state);
                 } else {
-                    // Create a fresh game board and save its layout
+                    // If no saved state exists, create a fresh board and save its layout
+                    // This will only happen the very first time a session is created
                     await createFreshBoard();
                     await saveBoardLayout();
                 }
@@ -326,7 +327,7 @@
                 
             } catch (error) {
                 console.error('Error initializing game:', error);
-                // Create a fresh board even if loading fails
+                // Create a fresh board if loading fails
                 await createFreshBoard();
                 await saveBoardLayout();
             }
@@ -453,7 +454,7 @@
             // Create a fresh board with closed cells and new distribution of numbers and symbols
             createFreshBoard();
             
-            // Save the new board layout
+            // Save the new board layout to the database
             saveBoardLayout();
             
             // Save the new game state
@@ -577,6 +578,9 @@
                     gameBoard.appendChild(cell);
                 }
             }
+            
+            // Save the layout to database if it's not already there
+            await saveBoardLayout();
         }
 
         // Save the current board layout to the database

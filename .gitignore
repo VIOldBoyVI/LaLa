@@ -1,7 +1,28 @@
 ```
+# Compiled Python files
+*.pyc
+__pycache__/
+
+# Database files
+database.db
+
+# Environment files
+.env
+.env.local
+*.env.*
+
 # Logs
 *.log
 
-# Database
-database.db
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*.tmp
+
+# Dependencies
+node_modules/
+venv/
+.venv/
 ```
