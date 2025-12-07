@@ -2,9 +2,31 @@
  * Debug mode: off
 WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
  * Running on all addresses (0.0.0.0)
- * Running on http://127.0.0.1:5555
- * Running on http://21.0.9.133:5555
+ * Running on http://127.0.0.1:8080
+ * Running on http://21.0.7.5:8080
 Press CTRL+C to quit
-127.0.0.1 - - [07/Dec/2025 19:53:29] "GET /api/config HTTP/1.1" 200 -
-127.0.0.1 - - [07/Dec/2025 19:53:31] "GET /api/get_all_questions HTTP/1.1" 200 -
-127.0.0.1 - - [07/Dec/2025 19:53:34] "GET /api/get_all_questions HTTP/1.1" 200 -
+127.0.0.1 - - [07/Dec/2025 20:40:22] "POST /api/init_game HTTP/1.1" 200 -
+127.0.0.1 - - [07/Dec/2025 20:40:22] "POST /api/mark_cell_opened HTTP/1.1" 200 -
+127.0.0.1 - - [07/Dec/2025 20:40:22] "POST /api/mark_cell_opened HTTP/1.1" 200 -
+127.0.0.1 - - [07/Dec/2025 20:40:22] "POST /api/mark_cell_opened HTTP/1.1" 200 -
+127.0.0.1 - - [07/Dec/2025 20:40:22] "POST /api/mark_cell_opened HTTP/1.1" 200 -
+127.0.0.1 - - [07/Dec/2025 20:40:23] "GET /api/get_opened_cells?session_id=test_session_7r78p7THOQ&round_num=1 HTTP/1.1" 200 -
+127.0.0.1 - - [07/Dec/2025 20:40:23] "GET /api/load_state?session_id=test_session_7r78p7THOQ HTTP/1.1" 200 -
+127.0.0.1 - - [07/Dec/2025 20:40:41] "POST /api/init_game HTTP/1.1" 200 -
+127.0.0.1 - - [07/Dec/2025 20:40:41] "POST /api/mark_cell_opened HTTP/1.1" 200 -
+127.0.0.1 - - [07/Dec/2025 20:40:41] "POST /api/mark_cell_opened HTTP/1.1" 200 -
+127.0.0.1 - - [07/Dec/2025 20:40:42] "POST /api/mark_cell_opened HTTP/1.1" 200 -
+127.0.0.1 - - [07/Dec/2025 20:40:42] "POST /api/mark_cell_opened HTTP/1.1" 200 -
+127.0.0.1 - - [07/Dec/2025 20:40:42] "GET /api/get_opened_cells?session_id=comprehensive_test_W1EDadBCA1&round_num=1 HTTP/1.1" 200 -
+127.0.0.1 - - [07/Dec/2025 20:40:42] "GET /api/get_opened_cells?session_id=comprehensive_test_W1EDadBCA1&round_num=1 HTTP/1.1" 200 -
+127.0.0.1 - - [07/Dec/2025 20:40:42] "POST /api/mark_cell_opened HTTP/1.1" 400 -
+127.0.0.1 - - [07/Dec/2025 20:41:28] "POST /api/init_game HTTP/1.1" 200 -
+127.0.0.1 - - [07/Dec/2025 20:41:29] "POST /api/mark_cell_opened HTTP/1.1" 200 -
+127.0.0.1 - - [07/Dec/2025 20:41:29] "POST /api/mark_cell_opened HTTP/1.1" 200 -
+127.0.0.1 - - [07/Dec/2025 20:41:29] "POST /api/mark_cell_opened HTTP/1.1" 200 -
+127.0.0.1 - - [07/Dec/2025 20:41:29] "POST /api/mark_cell_opened HTTP/1.1" 200 -
+127.0.0.1 - - [07/Dec/2025 20:41:29] "GET /api/get_opened_cells?session_id=final_test_1vvyczgYLJ&round_num=1 HTTP/1.1" 200 -
+127.0.0.1 - - [07/Dec/2025 20:41:29] "GET /api/get_opened_cells?session_id=final_test_1vvyczgYLJ&round_num=1 HTTP/1.1" 200 -
+127.0.0.1 - - [07/Dec/2025 20:41:29] "POST /api/mark_cell_opened HTTP/1.1" 200 -
+127.0.0.1 - - [07/Dec/2025 20:41:29] "POST /api/mark_cell_opened HTTP/1.1" 200 -
+127.0.0.1 - - [07/Dec/2025 20:41:30] "GET /api/get_opened_cells?session_id=final_test_1vvyczgYLJ&round_num=1 HTTP/1.1" 200 -

@@ -1,33 +1,12 @@
 ```
+# Logs and temp files
+*.log
+
 # Database files
-*.db
+database.db
 
 # Environment
 .env
 .env.local
 *.env.*
-
-# Dependencies
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-
-# Logs and temp files
-*.log
-*.tmp
-*.swp
-
-# Editors
-.vscode/
-.idea/
-
-# Coverage reports
-coverage/
-htmlcov/
-*.coverage
-
-# Testing
-.pytest_cache/
-.coverage*
 ```

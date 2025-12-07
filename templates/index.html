@@ -303,21 +303,24 @@
             await loadConfig();
             
             try {
-                const response = await fetch('/api/init_game', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ session_id: sessionId })
-                });
-
-                const data = await response.json();
-
+                // First, try to load existing game state
+                const loadResponse = await fetch(`/api/load_state?session_id=${sessionId}`);
+                let existingState = null;
+                
+                if (loadResponse.ok) {
+                    existingState = await loadResponse.json();
+                }
+                
                 // Create a fresh game board with initial state (all cells closed)
                 await createFreshBoard();
                 
+                // Then, load the revealed cells from the database
+                await loadRevealedCells();
+                
             } catch (error) {
                 console.error('Error initializing game:', error);
+                // Create a fresh board even if loading fails
+                await createFreshBoard();
             }
         }
         
@@ -362,7 +365,7 @@
                         round_num: 1, // Always use round 1 since we removed rounds
                         row: row,
                         col: col,
-                        cell_value: cellData.value
+                        cell_value: cellData.value  // Use the value from the board state
                     })
                 });
 
@@ -495,7 +498,7 @@
 
                     board[i][j] = {
                         value: cellValue,
-                        isRevealed: false  // All cells start closed
+                        isRevealed: false  // All cells start closed initially
                     };
 
                     const cell = document.createElement('div');
@@ -514,28 +517,53 @@
             }
         }
 
+        // Load revealed cells from the database
+        async function loadRevealedCells() {
+            try {
+                const response = await fetch(`/api/get_opened_cells?session_id=${sessionId}&round_num=1`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.opened_cells) {
+                        for (const openedCell of data.opened_cells) {
+                            const row = openedCell.row;
+                            const col = openedCell.col;
+                            const value = openedCell.value;
+                            
+                            // Update the board state to mark this cell as revealed
+                            if (board[row] && board[row][col]) {
+                                board[row][col].isRevealed = true;
+                                board[row][col].value = value;
+                            }
+                            
+                            // Update the visual representation
+                            const cellElement = document.querySelector(`.cell[data-row="${row}"][data-col="${col}"]`);
+                            if (cellElement) {
+                                cellElement.textContent = value;
+                                cellElement.classList.add('revealed');
+                                
+                                // Add specific class for number or symbol cells
+                                if (!isNaN(value)) {
+                                    cellElement.classList.add('number-cell');
+                                } else {
+                                    cellElement.classList.add('symbol-cell');
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading revealed cells:', error);
+            }
+        }
+
 
 
 
 
         async function saveGameState() {
             try {
-                // Prepare revealed cells data - track which cells are revealed
-                let revealedCellsData = [];
-                for (let i = 0; i < ROWS; i++) {
-                    for (let j = 0; j < COLS; j++) {
-                        if (board[i][j].isRevealed) {
-                            revealedCellsData.push({row: i, col: j, value: board[i][j].value});
-                        }
-                    }
-                }
-                
-                // Prepare board state data
-                const boardStateData = {
-                    board: board,
-                    revealedCells: revealedCellsData
-                };
-
+                // Save general game state (this can be used for other state data if needed)
                 await fetch('/api/save_state', {
                     method: 'POST',
                     headers: {
@@ -545,9 +573,7 @@
                         session_id: sessionId,
                         current_round: 1, // Always use round 1 since we removed rounds
                         current_cell: null,
-                        score: 0, // Removed score tracking
-                        revealed_cells: JSON.stringify(revealedCellsData),
-                        board_state: JSON.stringify(boardStateData)
+                        score: 0 // Removed score tracking
                     })
                 });
             } catch (error) {
