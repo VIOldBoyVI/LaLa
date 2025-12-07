@@ -463,22 +463,10 @@ class QuizGameApp:
         @self.app.route('/api/config', methods=['GET'])
         def get_config():
             # Return the game configuration
+            from config import get_symbols
             config = {
-                'symbols': [
-                    '🙂',  # смайлик
-                    '👍',  # лайк
-                    '👏',  # ладошки
-                    '⭐',  # звезда
-                    '❤️',  # сердце
-                    '🎵',  # нота
-                    '🎶',  # музыка (две ноты или музыкальный фрагмент)
-                    '☀️',  # солнце
-                    '☁️',  # облако
-                    '☂️'   # зонт
-                ]
-                # 'settings': {
-                #     'round_counters': [0, 20, 20, 20, 20, 10]  # Number of cells to open per round
-                }
+                'symbols': get_symbols()
+            }
             return jsonify(config)
 
         @self.app.route('/api/get_opened_cells', methods=['GET'])
