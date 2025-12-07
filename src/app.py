@@ -463,9 +463,15 @@ class QuizGameApp:
         @self.app.route('/api/config', methods=['GET'])
         def get_config():
             # Return the game configuration
-            from config import get_symbols
+            from config import get_symbols, get_body_style, get_cell_style, get_hover_cell_style, get_revealed_cell_style, get_number_cell_style, get_symbol_cell_style
             config = {
-                'symbols': get_symbols()
+                'symbols': get_symbols(),
+                'body_style': get_body_style(),
+                'cell_style': get_cell_style(),
+                'hover_cell_style': get_hover_cell_style(),
+                'revealed_cell_style': get_revealed_cell_style(),
+                'number_cell_style': get_number_cell_style(),
+                'symbol_cell_style': get_symbol_cell_style()
             }
             return jsonify(config)
 
