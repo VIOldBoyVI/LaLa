@@ -327,9 +327,29 @@
                 
             } catch (error) {
                 console.error('Error initializing game:', error);
-                // Create a fresh board if loading fails
-                await createFreshBoard();
-                await saveBoardLayout();
+                // Try to load existing board layout if possible
+                try {
+                    const layoutResponse = await fetch(`/api/load_state?session_id=${sessionId}`);
+                    if (layoutResponse.ok) {
+                        const stateData = await layoutResponse.json();
+                        if (stateData.board_state) {
+                            await createBoardFromLayout(stateData.board_state);
+                            await loadRevealedCells();
+                        } else {
+                            // If no layout exists, create fresh board
+                            await createFreshBoard();
+                            await saveBoardLayout();
+                        }
+                    } else {
+                        // If no state exists at all, create fresh board
+                        await createFreshBoard();
+                        await saveBoardLayout();
+                    }
+                } catch (layoutError) {
+                    console.error('Error loading board layout:', layoutError);
+                    await createFreshBoard();
+                    await saveBoardLayout();
+                }
             }
         }
         
@@ -450,15 +470,31 @@
         }
 
 
-        function startNewGame() {
+        async function startNewGame() {
             // Create a fresh board with closed cells and new distribution of numbers and symbols
             createFreshBoard();
             
             // Save the new board layout to the database
-            saveBoardLayout();
+            await saveBoardLayout();
             
             // Save the new game state
-            saveGameState();
+            await saveGameState();
+            
+            // Clear all opened cells from the database for this session
+            try {
+                await fetch('/api/clear_opened_cells', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        session_id: sessionId,
+                        round_num: 1
+                    })
+                });
+            } catch (error) {
+                console.error('Error clearing opened cells:', error);
+            }
         }
 
         async function createFreshBoard() {
@@ -554,14 +590,14 @@
                 rowLabels.appendChild(label);
             }
 
-            // Create the board from the layout
+            // Create the board from the layout - all cells start closed initially
             for (let i = 0; i < ROWS; i++) {
                 board[i] = [];
                 for (let j = 0; j < COLS; j++) {
                     const cellValue = layout[i][j];
                     board[i][j] = {
                         value: cellValue,
-                        isRevealed: false  // All cells start closed initially
+                        isRevealed: false  // All cells start closed initially, revealed state will be loaded separately
                     };
 
                     const cell = document.createElement('div');

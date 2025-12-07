@@ -14,7 +14,7 @@ database.db
 # Logs
 *.log
 
-# Editor files
+# Editor/IDE files
 .vscode/
 .idea/
 *.swp
