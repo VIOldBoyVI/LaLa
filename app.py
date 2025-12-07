@@ -469,6 +469,26 @@ def get_opened_cells():
     return jsonify({'opened_cells': opened_cells})
 
 
+@app.route('/api/clear_opened_cells', methods=['POST'])
+def clear_opened_cells():
+    data = request.json
+    session_id = data.get('session_id')
+    round_num = data.get('round_num', 1)
+    
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({'error': 'Database connection failed'}), 500
+    cursor = conn.cursor()
+
+    # Delete all opened cells for this session and round
+    cursor.execute('DELETE FROM opened_cells WHERE session_id = ? AND round_num = ?', (session_id, round_num))
+
+    conn.commit()
+    conn.close()
+    
+    return jsonify({'status': 'success'})
+
+
 @app.route('/api/get_all_questions', methods=['GET'])
 def get_all_questions():
     """Return all questions from the database"""
