@@ -77,7 +77,8 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             session_id TEXT,
             round_num INTEGER,
-            cell_position TEXT,  -- Format: "row,col"
+            row_num INTEGER,
+            col_num INTEGER,
             cell_value TEXT,
             opened_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
@@ -400,8 +401,8 @@ def mark_cell_opened():
     # Check if this cell was already opened in this round for this session
     cursor.execute('''
         SELECT id FROM opened_cells 
-        WHERE session_id = ? AND round_num = ? AND cell_position = ?
-    ''', (session_id, round_num, f"{row},{col}"))
+        WHERE session_id = ? AND round_num = ? AND row_num = ? AND col_num = ?
+    ''', (session_id, round_num, row, col))
     
     existing = cursor.fetchone()
     if existing:
@@ -411,9 +412,9 @@ def mark_cell_opened():
 
     # Insert the opened cell record
     cursor.execute('''
-        INSERT INTO opened_cells (session_id, round_num, cell_position, cell_value) 
-        VALUES (?, ?, ?, ?)
-    ''', (session_id, round_num, f"{row},{col}", cell_value))
+        INSERT INTO opened_cells (session_id, round_num, row_num, col_num, cell_value) 
+        VALUES (?, ?, ?, ?, ?)
+    ''', (session_id, round_num, row, col, cell_value))
 
     conn.commit()
     conn.close()
@@ -471,6 +472,6 @@ if __name__ == '__main__':
     init_db()
     app.run(
         host='0.0.0.0',
-        port=5555,
+        port=8080,
         debug=False  # В продакшене debug=False более безопасен
     )
