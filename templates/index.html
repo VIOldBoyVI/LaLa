@@ -311,8 +311,15 @@
                     existingState = await loadResponse.json();
                 }
                 
-                // Create a fresh game board with initial state (all cells closed)
-                await createFreshBoard();
+                // Create the game board - either from saved layout or fresh
+                if (existingState && existingState.board_state) {
+                    // Load the saved board layout
+                    await createBoardFromLayout(existingState.board_state);
+                } else {
+                    // Create a fresh game board and save its layout
+                    await createFreshBoard();
+                    await saveBoardLayout();
+                }
                 
                 // Then, load the revealed cells from the database
                 await loadRevealedCells();
@@ -321,6 +328,7 @@
                 console.error('Error initializing game:', error);
                 // Create a fresh board even if loading fails
                 await createFreshBoard();
+                await saveBoardLayout();
             }
         }
         
@@ -445,6 +453,9 @@
             // Create a fresh board with closed cells and new distribution of numbers and symbols
             createFreshBoard();
             
+            // Save the new board layout
+            saveBoardLayout();
+            
             // Save the new game state
             saveGameState();
         }
@@ -514,6 +525,84 @@
 
                     gameBoard.appendChild(cell);
                 }
+            }
+        }
+
+        // Create board from a saved layout
+        async function createBoardFromLayout(layout) {
+            // Clear existing elements
+            gameBoard.innerHTML = '';
+            colLabels.innerHTML = '';
+            rowLabels.innerHTML = '';
+            board = [];
+
+            // Create column labels (A-J)
+            for (let j = 0; j < COLS; j++) {
+                const letter = String.fromCharCode(65 + j); // A=65, B=66, ..., J=74
+                const label = document.createElement('div');
+                label.className = 'col-label';
+                label.textContent = letter;
+                colLabels.appendChild(label);
+            }
+
+            // Create row labels (1-10)
+            for (let i = 0; i < ROWS; i++) {
+                const label = document.createElement('div');
+                label.className = 'row-label';
+                label.textContent = i + 1;
+                rowLabels.appendChild(label);
+            }
+
+            // Create the board from the layout
+            for (let i = 0; i < ROWS; i++) {
+                board[i] = [];
+                for (let j = 0; j < COLS; j++) {
+                    const cellValue = layout[i][j];
+                    board[i][j] = {
+                        value: cellValue,
+                        isRevealed: false  // All cells start closed initially
+                    };
+
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    // All cells start closed (empty)
+                    cell.textContent = '';
+                    cell.dataset.row = i;
+                    cell.dataset.col = j;
+
+                    cell.addEventListener('click', () => {
+                        handleCellClick(i, j);
+                    });
+
+                    gameBoard.appendChild(cell);
+                }
+            }
+        }
+
+        // Save the current board layout to the database
+        async function saveBoardLayout() {
+            // Extract the board layout (just the values)
+            const layout = [];
+            for (let i = 0; i < ROWS; i++) {
+                layout[i] = [];
+                for (let j = 0; j < COLS; j++) {
+                    layout[i][j] = board[i][j].value;
+                }
+            }
+
+            try {
+                await fetch('/api/save_board_layout', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        session_id: sessionId,
+                        board_layout: layout
+                    })
+                });
+            } catch (error) {
+                console.error('Error saving board layout:', error);
             }
         }
 
