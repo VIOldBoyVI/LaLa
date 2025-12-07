@@ -433,11 +433,11 @@ def get_opened_cells():
     cursor = conn.cursor()
 
     cursor.execute('''
-        SELECT cell_position, cell_value FROM opened_cells 
+        SELECT row_num, col_num, cell_value FROM opened_cells 
         WHERE session_id = ? AND round_num = ?
     ''', (session_id, round_num))
     
-    opened_cells = [{'position': row[0], 'value': row[1]} for row in cursor.fetchall()]
+    opened_cells = [{'row': row[0], 'col': row[1], 'value': row[2]} for row in cursor.fetchall()]
 
     conn.close()
     
