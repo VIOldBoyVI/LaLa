@@ -136,7 +136,6 @@ def save_board_layout():
 @app.route('/api/init_game', methods=['POST'])
 def init_game():
     session_id = request.json.get('session_id')
-    board_layout = request.json.get('board_layout')  # New parameter to store board layout
     conn = get_db_connection()
     if conn is None:
         return jsonify({'error': 'Database connection failed'}), 500
@@ -157,10 +156,10 @@ def init_game():
         current_cell = None
         score = 0
 
-        # Сохраняем начальное состояние игры с доской
+        # Сохраняем начальное состояние игры
         cursor.execute(
-            'INSERT OR REPLACE INTO game_states (session_id, current_round, current_cell, score, board_state) VALUES (?, ?, ?, ?, ?)',
-            (session_id, current_round, current_cell, score, json.dumps(board_layout) if board_layout else None))
+            'INSERT OR REPLACE INTO game_states (session_id, current_round, current_cell, score) VALUES (?, ?, ?, ?)',
+            (session_id, current_round, current_cell, score))
 
     conn.commit()
     conn.close()
