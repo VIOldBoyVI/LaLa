@@ -274,88 +274,157 @@ class QuizGameApp:
             cursor = conn.cursor()
 
             # Получаем случайный вопрос для текущего раунда
-        #     cursor.execute('SELECT id, question_text FROM questions WHERE round_num = ? ORDER BY RANDOM() LIMIT 1',
-        #                    (round_num,))
-        #     question = cursor.fetchone()
-        #
-        #     conn.close()
-        #
-        #     if question:
-        #         return jsonify({'question_id': question[0], 'question_text': question[1]})
-        #     else:
-        #         return jsonify({'error': 'No questions available for this round'}), 404
-        #
-        # @self.app.route('/api/check_answer', methods=['POST'])
-        # def check_answer():
-        #     data = request.json
-        #     question_id = data.get('question_id')
-        #     user_answer = data.get('answer').strip().lower()
-        #
-        #     conn = self.get_db_connection()
-        #     if conn is None:
-        #         return jsonify({'error': 'Database connection failed'}), 500
-        #     cursor = conn.cursor()
-        #
-        #     # Получаем правильный ответ
-        #     cursor.execute('SELECT answer FROM questions WHERE id = ?', (question_id,))
-        #     correct_answer = cursor.fetchone()
-        #
-        #     conn.close()
-        #
-        #     if correct_answer:
-        #         correct = correct_answer[0].strip().lower() == user_answer
-        #         return jsonify({'correct': correct, 'correct_answer': correct_answer[0]})
-        #     else:
-        #         return jsonify({'error': 'Question not found'}), 404
-        #
-        # @self.app.route('/api/save_state', methods=['POST'])
-        # def save_state():
-        #     data = request.json
-        #     session_id = data.get('session_id')
-        #     current_round = data.get('current_round')
-        #     current_cell = data.get('current_cell')
-        #     score = data.get('score')
-        #     revealed_cells = data.get('revealed_cells')  # JSON string of revealed cells
-        #     board_state = data.get('board_state')  # JSON string of the entire board state
-        #
-        #     conn = self.get_db_connection()
-        #     if conn is None:
-        #         return jsonify({'error': 'Database connection failed'}), 500
-        #     cursor = conn.cursor()
-        #
-        #     cursor.execute(
-        #         'INSERT OR REPLACE INTO game_states (session_id, current_round, current_cell, score, revealed_cells, board_state) VALUES (?, ?, ?, ?, ?, ?)',
-        #         (session_id, current_round, current_cell, score, revealed_cells, board_state))
-        #
-        #     conn.commit()
-        #     conn.close()
-        #
-        #     return jsonify({'status': 'success'})
-        #
-        # @self.app.route('/api/load_state', methods=['GET'])
-        # def load_state():
-        #     session_id = request.args.get('session_id')
-        #
-        #     conn = self.get_db_connection()
-        #     if conn is None:
-        #         return jsonify({'error': 'Database connection failed'}), 500
-        #     cursor = conn.cursor()
-        #
-        #     cursor.execute('SELECT current_round, current_cell, score, revealed_cells, board_state FROM game_states WHERE session_id = ?', (session_id,))
-        #     game_state = cursor.fetchone()
-        #
-        #     conn.close()
-        #
-        #     if game_state:
-        #         return jsonify({
-        #             'current_round': game_state[0],
-        #             'current_cell': game_state[1],
-        #             'score': game_state[2],
-        #             'revealed_cells': game_state[3],
-        #             'board_state': game_state[4]
-        #         })
-        #     else:
-        #         return jsonify({'error': 'No saved state found'}), 404
+            cursor.execute('SELECT id, question_text FROM questions WHERE round_num = ? ORDER BY RANDOM() LIMIT 1',
+                           (round_num,))
+            question = cursor.fetchone()
+
+            conn.close()
+
+            if question:
+                return jsonify({'question_id': question[0], 'question_text': question[1]})
+            else:
+                return jsonify({'error': 'No questions available for this round'}), 404
+
+        @self.app.route('/api/check_answer', methods=['POST'])
+        def check_answer():
+            data = request.json
+            question_id = data.get('question_id')
+            user_answer = data.get('answer').strip().lower()
+
+            conn = self.get_db_connection()
+            if conn is None:
+                return jsonify({'error': 'Database connection failed'}), 500
+            cursor = conn.cursor()
+
+            # Получаем правильный ответ
+            cursor.execute('SELECT answer FROM questions WHERE id = ?', (question_id,))
+            correct_answer = cursor.fetchone()
+
+            conn.close()
+
+            if correct_answer:
+                correct = correct_answer[0].strip().lower() == user_answer
+                return jsonify({'correct': correct, 'correct_answer': correct_answer[0]})
+            else:
+                return jsonify({'error': 'Question not found'}), 404
+
+        @self.app.route('/api/save_state', methods=['POST'])
+        def save_state():
+            data = request.json
+            session_id = data.get('session_id')
+            current_round = data.get('current_round')
+            current_cell = data.get('current_cell')
+            score = data.get('score')
+            revealed_cells = data.get('revealed_cells')  # JSON string of revealed cells
+            board_state = data.get('board_state')  # JSON string of the entire board state
+
+            import json
+            board_state_str = json.dumps(board_state) if board_state else None
+
+            conn = self.get_db_connection()
+            if conn is None:
+                return jsonify({'error': 'Database connection failed'}), 500
+            cursor = conn.cursor()
+
+            cursor.execute(
+                'INSERT OR REPLACE INTO game_states (session_id, current_round, current_cell, score, revealed_cells, board_state) VALUES (?, ?, ?, ?, ?, ?)',
+                (session_id, current_round, current_cell, score, revealed_cells, board_state_str))
+
+            conn.commit()
+            conn.close()
+
+            return jsonify({'status': 'success'})
+
+        @self.app.route('/api/load_state', methods=['GET'])
+        def load_state():
+            session_id = request.args.get('session_id')
+
+            conn = self.get_db_connection()
+            if conn is None:
+                return jsonify({'error': 'Database connection failed'}), 500
+            cursor = conn.cursor()
+
+            cursor.execute('SELECT current_round, current_cell, score, revealed_cells, board_state FROM game_states WHERE session_id = ?', (session_id,))
+            game_state = cursor.fetchone()
+
+            conn.close()
+
+            if game_state:
+                import json
+                board_state = game_state[4]
+                # Try to parse board_state as JSON if it's not None
+                if board_state:
+                    try:
+                        parsed_board_state = json.loads(board_state)
+                        board_state = parsed_board_state
+                    except (json.JSONDecodeError, TypeError):
+                        # If parsing fails, return as is (it might already be parsed)
+                        pass
+
+                return jsonify({
+                    'current_round': game_state[0],
+                    'current_cell': game_state[1],
+                    'score': game_state[2],
+                    'revealed_cells': game_state[3],
+                    'board_state': board_state
+                })
+            else:
+                return jsonify({'error': 'No saved state found'}), 404
+
+        @self.app.route('/api/save_board_layout', methods=['POST'])
+        def save_board_layout():
+            data = request.json
+            session_id = data.get('session_id')
+            board_layout = data.get('board_layout')
+
+            import json
+            board_layout_str = json.dumps(board_layout) if board_layout else None
+
+            conn = self.get_db_connection()
+            if conn is None:
+                return jsonify({'error': 'Database connection failed'}), 500
+            cursor = conn.cursor()
+
+            # First, try to load existing game state
+            cursor.execute('SELECT * FROM game_states WHERE session_id = ?', (session_id,))
+            existing_game = cursor.fetchone()
+
+            if existing_game:
+                # Update the board_state field
+                cursor.execute(
+                    'UPDATE game_states SET board_state = ? WHERE session_id = ?',
+                    (board_layout_str, session_id))
+            else:
+                # Create new game state with board layout
+                cursor.execute(
+                    'INSERT INTO game_states (session_id, board_state) VALUES (?, ?)',
+                    (session_id, board_layout_str))
+
+            conn.commit()
+            conn.close()
+
+            return jsonify({'status': 'success'})
+
+        @self.app.route('/api/clear_opened_cells', methods=['POST'])
+        def clear_opened_cells():
+            data = request.json
+            session_id = data.get('session_id')
+            round_num = data.get('round_num')
+
+            conn = self.get_db_connection()
+            if conn is None:
+                return jsonify({'error': 'Database connection failed'}), 500
+            cursor = conn.cursor()
+
+            # Delete all opened cells for this session and round
+            cursor.execute(
+                'DELETE FROM opened_cells WHERE session_id = ? AND round_num = ?',
+                (session_id, round_num))
+
+            conn.commit()
+            conn.close()
+
+            return jsonify({'status': 'success'})
         #
         # @self.app.route('/api/get_players', methods=['GET'])
         # def get_players():
