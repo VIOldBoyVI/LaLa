@@ -74,7 +74,7 @@
         .board {
             display: grid;
             grid-template-columns: repeat(10, 70px);
-            grid-template-rows: repeat(10, 70px);
+            grid-template-rows: repeat(8, 70px);
             gap: 5px;
             background-color: rgba(0, 0, 0, 0.2);
             padding: 10px;
@@ -150,10 +150,6 @@
 
         .cell.revealed.number-cell {
             color: #000080; /* Темно-синий цвет для чисел */
-        }
-
-        .cell.revealed.symbol-cell {
-            color: initial; /* Цвет по умолчанию для символов */
         }
         
         .reset-btn {
@@ -401,12 +397,8 @@
                         cellData.isRevealed = true;
                         cellElement.textContent = cellData.value;
                         cellElement.classList.add('revealed');
-                        // Add specific class for number or symbol cells
-                        if (!isNaN(cellData.value)) {
-                            cellElement.classList.add('number-cell');
-                        } else {
-                            cellElement.classList.add('symbol-cell');
-                        }
+                        // Add number-cell class since all cells now contain numbers
+                        cellElement.classList.add('number-cell');
                         return;
                     }
                 }
@@ -417,21 +409,13 @@
 
             cellElement.textContent = cellData.value;
             cellElement.classList.add('revealed');
-            // Add specific class for number or symbol cells
-            if (!isNaN(cellData.value)) {
-                cellElement.classList.add('number-cell');
-            } else {
-                cellElement.classList.add('symbol-cell');
-            }
+            // Add number-cell class since all cells now contain numbers
+            cellElement.classList.add('number-cell');
 
             cellData.isRevealed = true;
 
-            // Check if it's a number (question) or symbol
-            const isNumber = !isNaN(cellData.value);
-
-            if (isNumber) {
-                await askQuestion(cellData.value);
-            }
+            // All cells contain numbers (1-80) which represent questions
+            await askQuestion(cellData.value);
 
             // Save game state
             await saveGameState();
@@ -520,17 +504,12 @@
             // Create array of values for the board
             let values = [];
 
-            // Add numbers (questions) - 90% of cells (90 out of 100)
+            // Add numbers (questions) - all 80 cells will have numbers
             for (let i = 1; i <= NUM_QUESTIONS; i++) {
                 values.push(i.toString());
             }
 
-            // Add special symbols - 10% of cells (10 out of 100)
-            // We'll use symbols from the SYMBOLS array, repeating them if necessary
-            for (let i = 0; i < (TOTAL_CELLS - NUM_QUESTIONS); i++) {
-                values.push(SYMBOLS[i % NUM_SYMBOLS]);
-            }
-
+            // No special symbols - all cells have numbers
             // Shuffle the values array
             shuffleArray(values);
 
@@ -668,11 +647,7 @@
                                 cellElement.classList.add('revealed');
                                 
                                 // Add specific class for number or symbol cells
-                                if (!isNaN(value)) {
-                                    cellElement.classList.add('number-cell');
-                                } else {
-                                    cellElement.classList.add('symbol-cell');
-                                }
+                                cellElement.classList.add('number-cell');
                             }
                         }
                     }
