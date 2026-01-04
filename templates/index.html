@@ -24,14 +24,14 @@
 
         .header {
             text-align: center;
-            margin-bottom: 30px;
+            margin-bottom: -10px; /* Reduced from 30px to move up by 40px */
             color: white;
             text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
         }
 
         h1 {
             font-size: 3rem;
-            margin-bottom: 10px;
+            margin-bottom: -30px; /* Reduced from 10px to move up by 40px */
         }
 
         h2 {
@@ -118,6 +118,7 @@
             font-weight: bold;
             color: white;
             min-height: 0; /* Allow labels to shrink */
+            box-sizing: border-box; /* Include padding/border in width calculation */
         }
 
         .cell {
