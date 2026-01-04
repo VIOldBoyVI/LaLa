@@ -24,14 +24,14 @@
 
         .header {
             text-align: center;
-            margin-bottom: -10px; /* Reduced from 30px to move up by 40px */
+            margin-bottom: 30px;
             color: white;
             text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
         }
 
         h1 {
             font-size: 3rem;
-            margin-bottom: -30px; /* Reduced from 10px to move up by 40px */
+            margin-bottom: 10px;
         }
 
         h2 {
@@ -50,41 +50,37 @@
         .game-board {
             display: grid;
             grid-template-columns: auto 1fr;
-            gap: 20px;
-            height: 80vh; /* Always 80% of screen height */
+            gap: 10px;
         }
 
         .row-labels {
             display: flex;
             flex-direction: column;
             gap: 5px;
-            height: 100%; /* Fill available height */
         }
 
         .row-label {
+            height: 70px;
+            width: 40px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 2.4rem;
+            font-size: 1.2rem;
             font-weight: bold;
             color: white;
             background-color: rgba(0, 0, 0, 0.3);
-            min-height: 0; /* Allow labels to shrink */
-            min-width: 80px; /* Fixed width to maintain readability */
-            flex: 1; /* Allow to grow and fill available space */
         }
 
         .board {
             display: grid;
-            grid-template-columns: repeat(10, 1fr);
-            grid-template-rows: repeat(8, 1fr);
-            gap: 10px;
+            grid-template-columns: repeat(10, 70px);
+            grid-template-rows: repeat(8, 70px);
+            gap: 5px;
             background-color: rgba(0, 0, 0, 0.2);
-            padding: 20px;
+            padding: 10px;
             border-radius: 10px;
-            height: 100%; /* Fill available height */
         }
-        
+
         .start-game-btn {
             width: 150px;
             height: 40px;
@@ -96,46 +92,44 @@
             cursor: pointer;
             margin-bottom: 20px;
         }
-        
+
         .start-game-btn:hover {
             background-color: #45a049;
         }
 
         .col-labels {
             display: grid;
-            grid-template-columns: repeat(10, 1fr);
-            gap: 10px;
-            margin-left: 90px;
+            grid-template-columns: repeat(10, 70px);
+            gap: 5px;
+            margin-left: 50px;
             margin-bottom: 10px;
-            height: 80px; /* Fixed height for readability */
         }
 
         .col-label {
+            height: 40px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 2.4rem;
+            font-size: 1.2rem;
             font-weight: bold;
             color: white;
-            min-height: 0; /* Allow labels to shrink */
-            box-sizing: border-box; /* Include padding/border in width calculation */
         }
 
         .cell {
+            width: 70px;
+            height: 70px;
             background: linear-gradient(145deg, #ff8c00, #ff6600);
             border: none;
             border-radius: 8px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 4rem; /* Увеличенный кегль */
+            font-size: 2rem; /* Увеличенный кегль */
             font-weight: bold;
             color: #000080; /* Темно-синий цвет */
             cursor: pointer;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
             transition: all 0.3s ease;
-            min-height: 0; /* Allow cells to shrink */
-            min-width: 0; /* Allow cells to shrink */
         }
 
         .cell:hover {
@@ -157,7 +151,7 @@
         .cell.revealed.number-cell {
             color: #000080; /* Темно-синий цвет для чисел */
         }
-        
+
         .reset-btn {
             position: absolute;
             top: 20px;
@@ -176,7 +170,7 @@
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
             z-index: 1000;
         }
-        
+
         .reset-btn:hover {
             background-color: #45a049;
             transform: rotate(90deg);
@@ -252,10 +246,10 @@
         let SYMBOLS = [];
         const ROWS = 8;
         const COLS = 10;
-        const TOTAL_CELLS = ROWS * COLS; // 80 cells
+        const TOTAL_CELLS = ROWS * COLS; // 100 cells
         const NUM_QUESTIONS = 80; // Numbers representing questions
         let NUM_SYMBOLS = 0; // Will be set after loading config
-        
+
         // Game state
         let board = [];
         let sessionId = localStorage.getItem('sessionId') || generateSessionId();
@@ -264,7 +258,7 @@
         let rowLabels = document.getElementById('rowLabels');
 
         let currentQuestionId = null;
-        
+
 
 
         // Сохраняем session ID в localStorage
@@ -280,13 +274,13 @@
             try {
                 const response = await fetch('/api/config');
                 const configData = await response.json();
-                
+
                 SYMBOLS = configData.symbols;
                 NUM_SYMBOLS = SYMBOLS.length;
-                
+
                 // Apply body styles from config
                 document.body.style.background = configData.body_style.background;
-                
+
             } catch (error) {
                 console.error('Error loading configuration:', error);
                 // Use default values if config loading fails
@@ -302,16 +296,16 @@
         async function initGame() {
             // Load configuration first
             await loadConfig();
-            
+
             try {
                 // First, try to load existing game state
                 const loadResponse = await fetch(`/api/load_state?session_id=${sessionId}`);
                 let existingState = null;
-                
+
                 if (loadResponse.ok) {
                     existingState = await loadResponse.json();
                 }
-                
+
                 // Create the game board - only from saved layout, never fresh on init unless there's no saved state
                 if (existingState && existingState.board_state) {
                     // Load the saved board layout - this preserves the board distribution
@@ -330,7 +324,7 @@
                             return;
                         }
                     }
-                    
+
                     await createBoardFromLayout(boardLayout);
                 } else {
                     // If no saved state exists, create a fresh board and save its layout
@@ -338,10 +332,10 @@
                     await createFreshBoard();
                     await saveBoardLayout();
                 }
-                
+
                 // Then, load the revealed cells from the database to restore the game state
                 await loadRevealedCells();
-                
+
             } catch (error) {
                 console.error('Error initializing game:', error);
                 // If everything fails, create a fresh board
@@ -350,7 +344,7 @@
                 await loadRevealedCells();
             }
         }
-        
+
 
 
 
@@ -445,7 +439,7 @@
                 if (data.question_id) {
                     currentQuestionId = data.question_id;
 
-                    
+
                     // Automatically add points after showing the question
                     setTimeout(async () => {
                     }, 3000); // Show question for 3 seconds before adding points
@@ -459,13 +453,13 @@
         async function startNewGame() {
             // Create a fresh board with closed cells and new distribution of numbers and symbols
             await createFreshBoard();
-            
+
             // Save the new board layout to the database
             await saveBoardLayout();
-            
+
             // Save the new game state
             await saveGameState();
-            
+
             // Clear all opened cells from the database for this session
             try {
                 await fetch('/api/clear_opened_cells', {
@@ -595,7 +589,7 @@
                     gameBoard.appendChild(cell);
                 }
             }
-            
+
             // Save the layout to database if it's not already there
             await saveBoardLayout();
         }
@@ -631,7 +625,7 @@
         async function loadRevealedCells() {
             try {
                 const response = await fetch(`/api/get_opened_cells?session_id=${sessionId}&round_num=1`);
-                
+
                 if (response.ok) {
                     const data = await response.json();
                     if (data.opened_cells) {
@@ -639,19 +633,19 @@
                             const row = openedCell.row;
                             const col = openedCell.col;
                             const value = openedCell.value;
-                            
+
                             // Update the board state to mark this cell as revealed
                             if (board[row] && board[row][col]) {
                                 board[row][col].isRevealed = true;
                                 board[row][col].value = value;
                             }
-                            
+
                             // Update the visual representation
                             const cellElement = document.querySelector(`.cell[data-row="${row}"][data-col="${col}"]`);
                             if (cellElement) {
                                 cellElement.textContent = value;
                                 cellElement.classList.add('revealed');
-                                
+
                                 // Add specific class for number or symbol cells
                                 cellElement.classList.add('number-cell');
                             }
@@ -677,7 +671,7 @@
                         layout[i][j] = board[i][j].value;
                     }
                 }
-                
+
                 // Save general game state with board layout
                 await fetch('/api/save_state', {
                     method: 'POST',
@@ -696,13 +690,13 @@
                 console.error('Error saving game state:', error);
             }
         }
-        
+
         // Player management functions
         async function loadPlayers() {
             try {
                 const response = await fetch(`/api/get_players?session_id=${sessionId}`);
                 const data = await response.json();
-                
+
                 if (data.players && data.players.length > 0) {
                     // Load existing players
                     data.players.forEach((player, index) => {
@@ -716,11 +710,11 @@
                 console.error('Error loading players:', error);
             }
         }
-        
 
-        
 
-        
+
+
+
         async function removePlayer(playerName) {
             // Check if there are at least 2 players remaining
             const playerRows = document.querySelectorAll('#playersTableBody tr');
@@ -728,25 +722,25 @@
                 alert('Должно быть как минимум 2 игрока');
                 return;
             }
-            
+
             // Ask for confirmation before removing the player
             const confirmed = confirm(`Вы уверены, что хотите удалить игрока "${playerName}"?`);
             if (!confirmed) {
                 return; // User cancelled the deletion
             }
-            
+
             try {
                 const response = await fetch('/api/remove_player', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ 
+                    body: JSON.stringify({
                         session_id: sessionId,
                         player_name: playerName
                     })
                 });
-                
+
                 if (response.ok) {
                     // Remove the row from the table
                     const row = document.querySelector(`.player-row[data-player-name="${playerName}"]`);
@@ -758,7 +752,7 @@
                 console.error('Error removing player:', error);
             }
         }
-        
+
         async function updatePlayerScore(playerName, newScore) {
             try {
                 const response = await fetch('/api/update_player', {
@@ -766,13 +760,13 @@
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ 
+                    body: JSON.stringify({
                         session_id: sessionId,
                         player_name: playerName,
                         score: newScore
                     })
                 });
-                
+
                 if (response.ok) {
                     // Update the score in the table
                     const scoreElement = document.querySelector(`.player-row[data-player-name="${playerName}"] .player-score`);
@@ -784,20 +778,20 @@
                 console.error('Error updating player score:', error);
             }
         }
-        
+
         function addPlayerToTable(playerName, score, isFromDatabase) {
             const tableBody = document.getElementById('playersTableBody');
             const playerCount = tableBody.children.length;
-            
+
             // Check if we already have this player in the table
             if (document.querySelector(`.player-row[data-player-name="${playerName}"]`)) {
                 return; // Player already exists
             }
-            
+
             const row = document.createElement('tr');
             row.className = 'player-row';
             row.setAttribute('data-player-name', playerName);
-            
+
             row.innerHTML = `
                 <td><input type="text" class="player-input" value="${playerName}" placeholder="Игрок/Команда"></td>
                 <td class="player-score">${score}</td>
@@ -807,24 +801,24 @@
                     <button class="remove-player-btn">X</button>
                 </td>
             `;
-            
+
             tableBody.appendChild(row);
-            
+
             // Add event listeners
             const playerInput = row.querySelector('.player-input');
             const minusBtn = row.querySelector('.minus-btn');
             const plusBtn = row.querySelector('.plus-btn');
             const removeBtn = row.querySelector('.remove-player-btn');
             const scoreElement = row.querySelector('.player-score');
-            
+
             // Update player name when input changes
             playerInput.addEventListener('change', async function() {
                 const oldName = row.getAttribute('data-player-name');
                 const newName = this.value || `Игрок ${playerCount + 1}`;
-                
+
                 // Update the data attribute
                 row.setAttribute('data-player-name', newName);
-                
+
                 // Update in database
                 try {
                     await fetch('/api/update_player', {
@@ -832,7 +826,7 @@
                         headers: {
                             'Content-Type': 'application/json'
                         },
-                        body: JSON.stringify({ 
+                        body: JSON.stringify({
                             session_id: sessionId,
                             player_name: oldName,
                             new_player_name: newName,
@@ -843,7 +837,7 @@
                     console.error('Error updating player name:', error);
                 }
             });
-            
+
             // Decrease score
             minusBtn.addEventListener('click', function() {
                 let currentScore = parseInt(scoreElement.textContent) || 0;
@@ -851,7 +845,7 @@
                 scoreElement.textContent = currentScore;
                 updatePlayerScore(playerName, currentScore);
             });
-            
+
             // Increase score
             plusBtn.addEventListener('click', function() {
                 let currentScore = parseInt(scoreElement.textContent) || 0;
@@ -859,26 +853,26 @@
                 scoreElement.textContent = currentScore;
                 updatePlayerScore(playerName, currentScore);
             });
-            
+
             // Remove player
             removeBtn.addEventListener('click', function() {
                 const playerName = row.getAttribute('data-player-name');
                 removePlayer(playerName);
             });
-            
+
             // Disable remove button if this is one of the last 2 players
             updateRemoveButtons();
         }
-        
+
         function updateRemoveButtons() {
             const playerRows = document.querySelectorAll('#playersTableBody tr');
             const removeButtons = document.querySelectorAll('.remove-player-btn');
-            
+
             removeButtons.forEach((btn, index) => {
                 btn.disabled = playerRows.length <= 2;
             });
         }
-        
+
         // Initialize player table
         document.getElementById('addPlayerBtn').addEventListener('click', function() {
             addPlayer();
