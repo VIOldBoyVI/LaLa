@@ -1,12 +1,1 @@
-```
-# Compiled Python files
-__pycache__/
-*.pyc
-
-# Logs
-*.log
-server.log
-
-# Database (if it's auto-generated)
-database.db
-```
+Nothing should be ignored based on the provided file changes. The only modified file is `templates/index.html`, which is a source file and should not be ignored.
