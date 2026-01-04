@@ -13,11 +13,11 @@ SYMBOLS = [
 ]
 
 # Game settings
-ROWS = 10
+ROWS = 8
 COLS = 10
-TOTAL_CELLS = ROWS * COLS  # 100 cells
-NUM_QUESTIONS = 90  # Numbers representing questions
-NUM_SYMBOLS = len(SYMBOLS)  # Special symbols
+TOTAL_CELLS = ROWS * COLS  # 80 cells
+NUM_QUESTIONS = 80  # Numbers representing questions
+NUM_SYMBOLS = 0  # No symbols, only numbers
 
 # Style settings
 BODY_STYLE = {
