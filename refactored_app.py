@@ -1,0 +1,369 @@
+#!/usr/bin/env python3
+"""
+ЛА-ЛА-ГЕЙМ - Викторина с элементами караоке
+Упрощенное Flask-приложение для игры
+"""
+from flask import Flask, render_template, request, jsonify
+from flask_cors import CORS
+import sqlite3
+import os
+import random
+import json
+from typing import Optional, Dict, Any
+
+app = Flask(__name__)
+CORS(app)
+DATABASE = 'database.db'
+
+
+def get_db_connection() -> Optional[sqlite3.Connection]:
+    """Создает соединение с базой данных с надлежащей обработкой ошибок"""
+    try:
+        conn = sqlite3.connect(DATABASE)
+        conn.row_factory = sqlite3.Row  # Позволяет обращаться к столбцам по имени
+        return conn
+    except sqlite3.Error as e:
+        print(f"Database connection error: {e}")
+        return None
+
+
+def init_db() -> None:
+    """Инициализирует базу данных, создавая таблицы и заполняя начальными данными"""
+    conn = get_db_connection()
+    if conn is None:
+        print("Failed to connect to database for initialization")
+        return
+
+    cursor = conn.cursor()
+
+    # Создание таблицы для сохранения состояния игры
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS game_states (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id TEXT UNIQUE NOT NULL,
+            current_round INTEGER DEFAULT 1,
+            current_cell TEXT,
+            score INTEGER DEFAULT 0,
+            revealed_cells TEXT,   -- JSON строка с открытыми ячейками
+            board_state TEXT,      -- JSON строка с раскладкой доски
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
+    # Создание таблицы для вопросов
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS questions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            round_num INTEGER,
+            question_text TEXT NOT NULL,
+            answer TEXT NOT NULL,
+            theme TEXT NOT NULL
+        )
+    ''')
+
+    # Добавление вопросов в базу данных
+    questions = [
+        (1, "Какое музыкальное направление считается предшественником рока?", "Блюз", "Музыкальные жанры"),
+        (1, "Кто считается королем рок-н-ролла?", "Элвис Пресли", "Музыкальные жанры"),
+        (1, "Как называется группа, выпустившая альбом 'Dark Side of the Moon'?", "Pink Floyd", "Музыкальные жанры"),
+        (1, "Как звали вокалиста группы Queen?", "Фредди Меркьюри", "Музыкальные жанры"),
+        (1, "Какой инструмент использовал Игорь Стравинский в 'Весне Священной'?", "Оркестр", "Музыкальные жанры"),
+        (1, "Какой музыкальный инструмент является самым большим в оркестре?", "Контрабас", "Музыкальные жанры"),
+        (1, "Как называется стиль музыки, происходящий из Ямайки?", "Регги", "Музыкальные жанры"),
+        (1, "Кто написал оперу 'Волшебная флейта'?", "Моцарт", "Музыкальные жанры"),
+        (1, "Как называется танец в ¾ времени?", "Вальс", "Музыкальные жанры"),
+        (1, "Какой инструмент использовал Бах в своих произведениях?", "Орган", "Музыкальные жанры"),
+        (1, "Какой жанр музыки связан с джазом?", "Блюз", "Музыкальные жанры"),
+        (1, "Какой инструмент используется в стиле 'караоке'?", "Клавишные", "Музыкальные жанры"),
+        (1, "Какой стиль музыки был популярен в 80-х?", "Поп", "Музыкальные жанры"),
+        (1, "Какой инструмент является основным в рок-группе?", "Гитара", "Музыкальные жанры"),
+        (1, "Какой музыкальный стиль ассоциируется с Бобом Марли?", "Регги", "Музыкальные жанры"),
+        (1, "Какой инструмент использовал Сергей Рахманинов?", "Фортепиано", "Музыкальные жанры"),
+        (1, "Какой стиль музыки использует синтезаторы?", "Электроника", "Музыкальные жанры"),
+        (1, "Какой музыкальный жанр возник в Новом Орлеане?", "Джаз", "Музыкальные жанры"),
+        (1, "Как называется группа, исполняющая 'Bohemian Rhapsody'?", "Queen", "Музыкальные жанры"),
+        (1, "Какой инструмент использовал Пётр Чайковский?", "Скрипка", "Музыкальные жанры"),
+        (2, "Кто является основателем группы The Beatles?", "Джон Леннон", "Музыкальные исполнители"),
+        (2, "Как звали солистку группы ABBA?", "Агнета Фельтског", "Музыкальные исполнители"),
+        (2, "Как зовут солиста группы AC/DC?", "Бон Сcott", "Музыкальные исполнители"),
+        (2, "Какой псевдоним у Роберта Зоммера?", "Боб Марли", "Музыкальные исполнители"),
+        (2, "Как зовут солиста группы Led Zeppelin?", "Роберт Плант", "Музыкальные исполнители"),
+        (2, "Как зовут солиста группы Deep Purple?", "Иэн Гиллан", "Музыкальные исполнители"),
+        (2, "Как зовут солиста группы Black Sabbath?", "Оззи Осборн", "Музыкальные исполнители"),
+        (2, "Как зовут солиста группы The Rolling Stones?", "Мик Джаггер", "Музыкальные исполнители"),
+        (2, "Как зовут солиста группы The Who?", "Роджер Долтри", "Музыкальные исполнители"),
+        (2, "Как зовут солиста группы The Doors?", "Джим Моррисон", "Музыкальные исполнители"),
+        (2, "Как зовут солиста группы The Eagles?", "Гленн Фрай", "Музыкальные исполнители"),
+        (2, "Как зовут солиста группы Lynyrd Skynyrd?", "Ронни Ван Зант", "Музыкальные исполнители"),
+        (2, "Как зовут солиста группы ZZ Top?", "Билли Гиббонс", "Музыкальные исполнители"),
+        (2, "Как зовут солиста группы Kiss?", "Пол Стэйн", "Музыкальные исполнители"),
+        (2, "Как зовут солиста группы Rush?", "Гэддзи Ли", "Музыкальные исполнители"),
+        (2, "Как зовут солиста группы Van Halen?", "Дэвид Ли Рот", "Музыкальные исполнители"),
+        (2, "Как зовут солиста группы Foreigner?", "Лу Грамм", "Музыкальные исполнители"),
+        (2, "Как зовут солиста группы Journey?", "Стиви Перри", "Музыкальные исполнители"),
+        (2, "Как зовут солиста группы Boston?", "Брюс Куланж", "Музыкальные исполнители"),
+        (2, "Как зовут солиста группы Styx?", "Деннис ДеЯнг", "Музыкальные исполнители"),
+        (3, "Какой инструмент имеет 6 струн?", "Гитара", "Музыкальные инструменты"),
+        (3, "Какой инструмент имеет педали?", "Фортепиано", "Музыкальные инструменты"),
+        (3, "Какой инструмент используется в джазе?", "Саксофон", "Музыкальные инструменты"),
+        (3, "Какой инструмент используется в оркестре?", "Скрипка", "Музыкальные инструменты"),
+        (3, "Какой инструмент используется в рок-группе?", "Ударные", "Музыкальные инструменты"),
+        (3, "Какой инструмент используется в классической музыке?", "Виолончель", "Музыкальные инструменты"),
+        (3, "Какой инструмент используется в блюзе?", "Тромбон", "Музыкальные инструменты"),
+        (3, "Какой инструмент используется в регги?", "Конга", "Музыкальные инструменты"),
+        (3, "Какой инструмент используется в фолк-музыке?", "Мандолина", "Музыкальные инструменты"),
+        (3, "Какой инструмент используется в электронной музыке?", "Синтезатор", "Музыкальные инструменты"),
+        (3, "Какой инструмент используется в народной музыке?", "Балалайка", "Музыкальные инструменты"),
+        (3, "Какой инструмент используется в рэпе?", "Сэмплер", "Музыкальные инструменты"),
+        (3, "Какой инструмент используется в опере?", "Арфа", "Музыкальные инструменты"),
+        (3, "Какой инструмент используется в рок-н-ролле?", "Саксофон", "Музыкальные инструменты"),
+        (3, "Какой инструмент используется в хип-хопе?", "Драм-машина", "Музыкальные инструменты"),
+        (3, "Какой инструмент используется в фанке?", "Бас-гитара", "Музыкальные инструменты"),
+        (3, "Какой инструмент используется в соуле?", "Труба", "Музыкальные инструменты"),
+        (3, "Какой инструмент используется в кантри?", "Педальная сталь", "Музыкальные инструменты"),
+        (3, "Какой инструмент используется в латиноамериканской музыке?", "Маракас", "Музыкальные инструменты"),
+        (3, "Какой инструмент используется в фолк-роке?", "Укулеле", "Музыкальные инструменты"),
+        (4, "Когда был изобретён первый музыкальный инструмент?", "35000 лет назад", "Музыкальная история"),
+        (4, "Кто написал 'Лунную сонату'?", "Бетховен", "Музыкальная история"),
+        (4, "Какой музыкальный инструмент был изобретён первым?", "Барабан", "Музыкальная история"),
+        (4, "Когда появился первый граммофон?", "1877", "Музыкальная история"),
+        (4, "Кто основал компанию Fender?", "Лео Фендер", "Музыкальная история"),
+        (4, "Когда была основана компания Gibson?", "1902", "Музыкальная история"),
+        (4, "Кто изобрёл первый синтезатор?", "Роберт Мууг", "Музыкальная история"),
+        (4, "Когда был изобретён первый синтезатор?", "1964", "Музыкальная история"),
+        (4, "Кто написал 'Лето' в стиле вивальди?", "Антонио Вивальди", "Музыкальная история"),
+        (4, "Когда был изобретён первый музыкальный автомат?", "1890", "Музыкальная история"),
+        (4, "Кто написал 'Реквием'?", "Моцарт", "Музыкальная история"),
+        (4, "Когда был изобретён первый пианино?", "1709", "Музыкальная история"),
+        (4, "Кто изобрёл первый пианино?", "Бартоломео Кристофори", "Музыкальная история"),
+        (4, "Когда была основана первая опера?", "1637", "Музыкальная история"),
+        (4, "Кто написал первую оперу?", "Клаудио Монтеверди", "Музыкальная история"),
+        (4, "Когда был изобретён первый гитар?", "1500", "Музыкальная история"),
+        (4, "Кто написал 'Симфонию №9'?", "Бетховен", "Музыкальная история"),
+        (4, "Когда была написана 'Симфония №9'?", "1824", "Музыкальная история"),
+        (4, "Кто изобрёл первый виолончель?", "Андреа Аматьи", "Музыкальная история"),
+        (4, "Когда был изобретён первый виолончель?", "1600", "Музыкальная история"),
+        (5, "Какой музыкальный инструмент используется в 'Bohemian Rhapsody'?", "Фортепиано", "Смешанные темы"),
+        (5, "Какой стиль музыки использовался в 'Thriller'?", "Поп", "Смешанные темы"),
+        (5, "Какой инструмент использовался в 'Stairway to Heaven'?", "Гитара", "Смешанные темы"),
+        (5, "Какой стиль музыки использовался в 'Imagine'?", "Поп", "Смешанные темы"),
+        (5, "Какой инструмент использовался в 'Hotel California'?", "Гитара", "Смешанные темы"),
+        (5, "Какой стиль музыки использовался в 'Like a Rolling Stone'?", "Фолк-рок", "Смешанные темы"),
+        (5, "Какой инструмент использовался в 'Yesterday'?", "Струнные", "Смешанные темы"),
+        (5, "Какой стиль музыки использовался в 'Hey Jude'?", "Поп", "Смешанные темы"),
+        (5, "Какой инструмент использовался в 'Sweet Child O' Mine'?", "Гитара", "Смешанные темы"),
+        (5, "Какой стиль музыки использовался в 'Billie Jean'?", "Поп", "Смешанные темы")
+    ]
+
+    cursor.executemany('INSERT OR IGNORE INTO questions (round_num, question_text, answer, theme) VALUES (?, ?, ?, ?)', questions)
+
+    conn.commit()
+    conn.close()
+
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+
+@app.route('/api/init_game', methods=['POST'])
+def init_game():
+    """Инициализирует новую игру или загружает существующую"""
+    session_id = request.json.get('session_id')
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({'error': 'Database connection failed'}), 500
+    cursor = conn.cursor()
+
+    # Проверяем, существует ли уже игра с этим session_id
+    cursor.execute('SELECT * FROM game_states WHERE session_id = ?', (session_id,))
+    existing_game = cursor.fetchone()
+
+    if existing_game:
+        # Если игра существует, возвращаем текущее состояние
+        revealed_cells = existing_game[5]  # revealed_cells is at index 5
+        board_state = existing_game[6]     # board_state is at index 6
+    else:
+        # Иначе инициализируем новую игру
+        revealed_cells = None
+        board_state = None
+
+    conn.close()
+
+    return jsonify({
+        'session_id': session_id,
+        'board_layout': board_state,  # Use board_state as board_layout for compatibility
+        'revealed_cells': revealed_cells
+    })
+
+
+@app.route('/api/save_board_layout', methods=['POST'])
+def save_board_layout():
+    """Сохраняет раскладку доски"""
+    data = request.json
+    session_id = data.get('session_id')
+    board_layout = data.get('board_layout')
+
+    import json
+    board_layout_str = json.dumps(board_layout) if board_layout else None
+
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({'error': 'Database connection failed'}), 500
+    cursor = conn.cursor()
+
+    # Проверяем, существует ли уже состояние игры
+    cursor.execute('SELECT * FROM game_states WHERE session_id = ?', (session_id,))
+    existing_game = cursor.fetchone()
+
+    if existing_game:
+        # Обновляем раскладку доски
+        cursor.execute(
+            'UPDATE game_states SET board_layout = ? WHERE session_id = ?',
+            (board_layout_str, session_id))
+    else:
+        # Создаем новое состояние игры
+        cursor.execute(
+            'INSERT INTO game_states (session_id, board_layout) VALUES (?, ?)',
+            (session_id, board_layout_str))
+
+    conn.commit()
+    conn.close()
+
+    return jsonify({'status': 'success'})
+
+
+@app.route('/api/mark_cell_opened', methods=['POST'])
+def mark_cell_opened():
+    """Отмечает ячейку как открытую"""
+    data = request.json
+    session_id = data.get('session_id')
+    row = data.get('row')
+    col = data.get('col')
+    cell_value = data.get('cell_value')
+
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({'error': 'Database connection failed'}), 500
+    cursor = conn.cursor()
+
+    # Загружаем текущее состояние открытых ячеек
+    cursor.execute('SELECT revealed_cells FROM game_states WHERE session_id = ?', (session_id,))
+    result = cursor.fetchone()
+
+    revealed_cells = {}
+    if result and result[0]:
+        try:
+            revealed_cells = json.loads(result[0])
+        except (json.JSONDecodeError, TypeError):
+            revealed_cells = {}
+
+    # Добавляем новую открытую ячейку
+    cell_key = f"{row},{col}"
+    revealed_cells[cell_key] = cell_value
+
+    # Сохраняем обновленное состояние
+    revealed_cells_str = json.dumps(revealed_cells)
+    cursor.execute(
+        'UPDATE game_states SET revealed_cells = ? WHERE session_id = ?',
+        (revealed_cells_str, session_id))
+
+    conn.commit()
+    conn.close()
+
+    return jsonify({'status': 'success'})
+
+
+@app.route('/api/load_state', methods=['GET'])
+def load_state():
+    """Загружает состояние игры"""
+    session_id = request.args.get('session_id')
+
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({'error': 'Database connection failed'}), 500
+    cursor = conn.cursor()
+
+    cursor.execute('SELECT board_layout, revealed_cells FROM game_states WHERE session_id = ?', (session_id,))
+    game_state = cursor.fetchone()
+
+    conn.close()
+
+    if game_state:
+        board_layout = game_state[0]
+        revealed_cells = game_state[1]
+
+        # Попытка распарсить JSON
+        if board_layout:
+            try:
+                board_layout = json.loads(board_layout)
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+        if revealed_cells:
+            try:
+                revealed_cells = json.loads(revealed_cells)
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+        return jsonify({
+            'board_layout': board_layout,
+            'revealed_cells': revealed_cells
+        })
+    else:
+        return jsonify({'error': 'No saved state found'}), 404
+
+
+@app.route('/api/reset_game', methods=['POST'])
+def reset_game():
+    """Сбрасывает состояние игры"""
+    session_id = request.json.get('session_id')
+
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({'error': 'Database connection failed'}), 500
+    cursor = conn.cursor()
+
+    # Обновляем только открытые ячейки, оставляя раскладку доски
+    cursor.execute(
+        'UPDATE game_states SET revealed_cells = ? WHERE session_id = ?',
+        (None, session_id))
+
+    conn.commit()
+    conn.close()
+
+    return jsonify({'status': 'success'})
+
+
+@app.route('/api/get_question', methods=['POST'])
+def get_question():
+    """Получает случайный вопрос для раунда"""
+    data = request.json
+    session_id = data.get('session_id')
+    round_num = data.get('round_num', 1)
+
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({'error': 'Database connection failed'}), 500
+    cursor = conn.cursor()
+
+    # Получаем случайный вопрос для текущего раунда
+    cursor.execute('SELECT id, question_text FROM questions WHERE round_num = ? ORDER BY RANDOM() LIMIT 1',
+                   (round_num,))
+    question = cursor.fetchone()
+
+    conn.close()
+
+    if question:
+        return jsonify({'question_id': question[0], 'question_text': question[1]})
+    else:
+        return jsonify({'error': 'No questions available for this round'}), 404
+
+
+if __name__ == '__main__':
+    init_db()
+    app.run(
+        host='0.0.0.0',
+        port=5555,
+        debug=False  # В продакшене debug=False более безопасен
+    )

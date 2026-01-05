@@ -3,22 +3,85 @@
 База данных инициализирована.
 Запуск веб-сервера...
 Откройте в браузере: http://localhost:5555
- * Serving Flask app 'app'
+ * Serving Flask app 'refactored_app'
  * Debug mode: off
 WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
  * Running on all addresses (0.0.0.0)
  * Running on http://127.0.0.1:5555
- * Running on http://21.0.9.155:5555
+ * Running on http://21.0.4.144:5555
 Press CTRL+C to quit
-127.0.0.1 - - [04/Jan/2026 17:09:09] "GET / HTTP/1.1" 200 -
-127.0.0.1 - - [04/Jan/2026 17:09:34] "POST /api/init_game HTTP/1.1" 200 -
-127.0.0.1 - - [04/Jan/2026 17:09:34] "GET /api/config HTTP/1.1" 200 -
-127.0.0.1 - - [04/Jan/2026 17:09:34] "GET /api/load_state?session_id=test_session_1767546574_5008 HTTP/1.1" 200 -
-127.0.0.1 - - [04/Jan/2026 17:09:34] "POST /api/save_board_layout HTTP/1.1" 200 -
-127.0.0.1 - - [04/Jan/2026 17:09:34] "GET /api/config HTTP/1.1" 200 -
-127.0.0.1 - - [04/Jan/2026 17:09:37] "GET /api/config HTTP/1.1" 200 -
-127.0.0.1 - - [04/Jan/2026 17:10:20] "GET /api/config HTTP/1.1" 200 -
-127.0.0.1 - - [04/Jan/2026 17:10:20] "POST /api/init_game HTTP/1.1" 200 -
-127.0.0.1 - - [04/Jan/2026 17:10:20] "POST /api/get_question HTTP/1.1" 200 -
-127.0.0.1 - - [04/Jan/2026 17:10:20] "GET /api/get_all_questions HTTP/1.1" 200 -
-127.0.0.1 - - [04/Jan/2026 17:10:23] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [05/Jan/2026 10:20:12] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [05/Jan/2026 10:20:12] "POST /api/init_game HTTP/1.1" 200 -
+127.0.0.1 - - [05/Jan/2026 10:20:12] "POST /api/init_game HTTP/1.1" 200 -
+127.0.0.1 - - [05/Jan/2026 10:20:12] "POST /api/mark_cell_opened HTTP/1.1" 200 -
+127.0.0.1 - - [05/Jan/2026 10:20:12] "POST /api/mark_cell_opened HTTP/1.1" 200 -
+127.0.0.1 - - [05/Jan/2026 10:20:12] "POST /api/mark_cell_opened HTTP/1.1" 200 -
+127.0.0.1 - - [05/Jan/2026 10:20:12] "POST /api/init_game HTTP/1.1" 200 -
+127.0.0.1 - - [05/Jan/2026 10:20:12] "POST /api/mark_cell_opened HTTP/1.1" 200 -
+127.0.0.1 - - [05/Jan/2026 10:20:12] "POST /api/mark_cell_opened HTTP/1.1" 200 -
+[2026-01-05 10:20:12,458] ERROR in app: Exception on /api/load_state [GET]
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.12/site-packages/flask/app.py", line 2190, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/flask/app.py", line 1486, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/flask_cors/extension.py", line 176, in wrapped_function
+    return cors_after_request(app.make_response(f(*args, **kwargs)))
+                                                ^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/flask/app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/flask/app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/refactored_app.py", line 284, in load_state
+    cursor.execute('SELECT board_layout, revealed_cells FROM game_states WHERE session_id = ?', (session_id,))
+sqlite3.OperationalError: no such column: board_layout
+127.0.0.1 - - [05/Jan/2026 10:20:12] "GET /api/load_state?session_id=test_session_1767608412_7880 HTTP/1.1" 500 -
+127.0.0.1 - - [05/Jan/2026 10:20:12] "POST /api/reset_game HTTP/1.1" 200 -
+[2026-01-05 10:20:12,505] ERROR in app: Exception on /api/load_state [GET]
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.12/site-packages/flask/app.py", line 2190, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/flask/app.py", line 1486, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/flask_cors/extension.py", line 176, in wrapped_function
+    return cors_after_request(app.make_response(f(*args, **kwargs)))
+                                                ^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/flask/app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/flask/app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/refactored_app.py", line 284, in load_state
+    cursor.execute('SELECT board_layout, revealed_cells FROM game_states WHERE session_id = ?', (session_id,))
+sqlite3.OperationalError: no such column: board_layout
+127.0.0.1 - - [05/Jan/2026 10:20:12] "GET /api/load_state?session_id=test_session_1767608412_7880 HTTP/1.1" 500 -
+127.0.0.1 - - [05/Jan/2026 10:20:20] "POST /api/init_game HTTP/1.1" 200 -
+127.0.0.1 - - [05/Jan/2026 10:20:23] "POST /api/mark_cell_opened HTTP/1.1" 200 -
+[2026-01-05 10:20:25,652] ERROR in app: Exception on /api/load_state [GET]
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.12/site-packages/flask/app.py", line 2190, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/flask/app.py", line 1486, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/flask_cors/extension.py", line 176, in wrapped_function
+    return cors_after_request(app.make_response(f(*args, **kwargs)))
+                                                ^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/flask/app.py", line 1484, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/flask/app.py", line 1469, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/refactored_app.py", line 284, in load_state
+    cursor.execute('SELECT board_layout, revealed_cells FROM game_states WHERE session_id = ?', (session_id,))
+sqlite3.OperationalError: no such column: board_layout
+127.0.0.1 - - [05/Jan/2026 10:20:25] "GET /api/load_state?session_id=test123 HTTP/1.1" 500 -
