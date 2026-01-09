@@ -1,33 +1,61 @@
 #!/usr/bin/env python3
 """
-ЛА-ЛА-ГЕЙМ - Запуск приложения
-
-Этот скрипт инициализирует базу данных и запускает Flask-приложение.
+Unified launcher for LaLaGame application
+Automatically chooses between SQLite (default) and MySQL (when configured) versions
 """
+
 import os
 import sys
-from app import app, init_db
-
+from dotenv import load_dotenv
 
 def main():
-    """Основная функция запуска приложения"""
-    print("ЛА-ЛА-ГЕЙМ - Викторина с элементами караоке")
-    print("Инициализация базы данных...")
+    """Main function to launch the appropriate version of the application"""
+    # Try to load environment variables
+    load_dotenv()
     
-    # Инициализация базы данных
-    init_db()
+    # Check if MySQL environment variables are configured
+    mysql_vars = ['DB_HOST', 'DB_NAME', 'DB_USER', 'DB_PASSWORD']
+    mysql_configured = all(os.getenv(var) for var in mysql_vars)
     
-    print("База данных инициализирована.")
-    print("Запуск веб-сервера...")
-    print("Откройте в браузере: http://localhost:5555")
+    if mysql_configured:
+        print("MySQL configuration detected. Launching MySQL version...")
+        try:
+            from app_mysql import app, init_db
+            print("Initializing database...")
+            init_db()
+            print("Starting server...")
+            app.run(
+                host=os.getenv('FLASK_HOST', '0.0.0.0'),
+                port=int(os.getenv('FLASK_PORT', 5555)),
+                debug=os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
+            )
+        except ImportError as e:
+            print(f"Error importing MySQL version: {e}")
+            print("Falling back to SQLite version...")
+            # Continue to SQLite version
+            mysql_configured = False
+        except Exception as e:
+            print(f"Error starting MySQL version: {e}")
+            sys.exit(1)
     
-    # Запуск Flask-приложения
-    app.run(
-        host='0.0.0.0',
-        port=5555,
-        debug=False  # В продакшене debug=False более безопасен
-    )
-
+    if not mysql_configured:
+        print("Launching SQLite version (default)...")
+        try:
+            from app import app, init_db
+            print("Initializing database...")
+            init_db()
+            print("Starting server...")
+            app.run(
+                host='0.0.0.0',
+                port=5555,
+                debug=False  # More secure for production
+            )
+        except ImportError as e:
+            print(f"Error importing SQLite version: {e}")
+            sys.exit(1)
+        except Exception as e:
+            print(f"Error starting SQLite version: {e}")
+            sys.exit(1)
 
 if __name__ == '__main__':
     main()
