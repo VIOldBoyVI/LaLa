@@ -154,7 +154,7 @@
 
         .reset-btn {
             position: absolute;
-            top: 20px;
+            top: 70px;
             right: 20px;
             width: 50px;
             height: 50px;
@@ -305,9 +305,20 @@
         // State history for undo/redo functionality
         let stateHistory = []; // Array to store game states
         let currentStateIndex = -1; // Current position in the history
+        let stateCountByOpenCells = 0; // Track the number of open cells in current state
         
         // Save initial state to history
         function saveStateToHistory() {
+            // Count the number of open cells in current state
+            let openCellsCount = 0;
+            for (let i = 0; i < ROWS; i++) {
+                for (let j = 0; j < COLS; j++) {
+                    if (board[i][j].isRevealed) {
+                        openCellsCount++;
+                    }
+                }
+            }
+            
             // Create a deep copy of the current board state
             const boardState = [];
             for (let i = 0; i < ROWS; i++) {
@@ -323,9 +334,15 @@
             // Keep only the history up to the current state (remove redo history)
             stateHistory = stateHistory.slice(0, currentStateIndex + 1);
             
-            // Add the new state to history
-            stateHistory.push(boardState);
+            // Add the new state to history with the count of open cells
+            stateHistory.push({
+                boardState: boardState,
+                openCellsCount: openCellsCount
+            });
             currentStateIndex = stateHistory.length - 1;
+            
+            // Update the state count by open cells
+            stateCountByOpenCells = openCellsCount;
             
             // Limit history size to prevent memory issues
             if (stateHistory.length > 50) {
@@ -343,7 +360,8 @@
                 return false;
             }
             
-            const state = stateHistory[index];
+            const stateEntry = stateHistory[index];
+            const state = stateEntry.boardState;
             
             // Update the board state
             for (let i = 0; i < ROWS; i++) {
@@ -369,6 +387,7 @@
             }
             
             currentStateIndex = index;
+            stateCountByOpenCells = stateEntry.openCellsCount; // Update the open cells count
             updateHistoryButtons();
             return true;
         }
@@ -392,7 +411,7 @@
                     const result = await response.json();
                     
                     if (result.status === 'success' || result.status === 'no_cells_to_revert') {
-                        // Now restore the UI state
+                        // Now restore the UI state to the previous state (one less open cell)
                         return restoreStateFromHistory(currentStateIndex - 1);
                     } else {
                         console.error('Error reverting cell from database:', result);
@@ -409,7 +428,7 @@
         // Redo the next action
         async function redoAction() {
             if (currentStateIndex < stateHistory.length - 1) {
-                const nextState = stateHistory[currentStateIndex + 1];
+                const nextState = stateHistory[currentStateIndex + 1].boardState;
                 
                 // Get the difference between current and next state to know which cells to open again
                 const cellsToOpen = [];
@@ -419,7 +438,7 @@
                         // If the next state has a cell revealed but current state doesn't, or values differ
                         const isCurrentlyRevealed = currentStateIndex >= 0 && 
                             stateHistory[currentStateIndex] && 
-                            stateHistory[currentStateIndex][i][j].isRevealed;
+                            stateHistory[currentStateIndex].boardState[i][j].isRevealed;
                             
                         if (nextState[i][j].isRevealed && !isCurrentlyRevealed) {
                             cellsToOpen.push({
@@ -475,8 +494,6 @@
                 redoBtn.disabled = currentStateIndex >= stateHistory.length - 1;
             }
         }
-
-
 
         // Сохраняем session ID в localStorage
         localStorage.setItem('sessionId', sessionId);
@@ -895,6 +912,7 @@
             // Reset state history
             stateHistory = [];
             currentStateIndex = -1;
+            stateCountByOpenCells = 0; // Reset the open cells count
             
             // Create a fresh board with closed cells and new distribution of numbers and symbols
             await createFreshBoard();
