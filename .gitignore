@@ -1,4 +1,1 @@
-```
-# Backup files
-*.backup
-```
+Nothing should be ignored based on the provided file changes. The only modified file is 'templates/index.html', which is a source file and should not be added to .gitignore.

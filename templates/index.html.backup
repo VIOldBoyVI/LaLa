@@ -395,52 +395,32 @@
         // Undo the last action
         async function undoAction() {
             if (currentStateIndex > 0) {
-                // Restore the UI state to the previous state first
-                const success = restoreStateFromHistory(currentStateIndex - 1);
-                
-                if (success) {
-                    // Now update the database to match the restored state
-                    try {
-                        // Collect all currently revealed cells to send to the backend
-                        const revealedCells = [];
-                        for (let i = 0; i < ROWS; i++) {
-                            for (let j = 0; j < COLS; j++) {
-                                if (board[i][j].isRevealed) {
-                                    revealedCells.push({
-                                        row: i,
-                                        col: j,
-                                        value: board[i][j].value
-                                    });
-                                }
-                            }
-                        }
-                        
-                        const response = await fetch('/api/set_opened_cells', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify({
-                                session_id: sessionId,
-                                round_num: 1,
-                                opened_cells: revealedCells
-                            })
-                        });
-                        
-                        const result = await response.json();
-                        
-                        if (result.status !== 'success') {
-                            console.error('Error updating database to match restored state:', result);
-                        }
-                        
-                        return true;
-                    } catch (error) {
-                        console.error('Error communicating with server during undo:', error);
-                        return true; // Return true since UI was restored even if DB sync failed
+                // First revert the last opened cell in the database
+                try {
+                    const response = await fetch('/api/revert_last_opened_cell', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            session_id: sessionId,
+                            round_num: 1
+                        })
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.status === 'success' || result.status === 'no_cells_to_revert') {
+                        // Now restore the UI state to the previous state (one less open cell)
+                        return restoreStateFromHistory(currentStateIndex - 1);
+                    } else {
+                        console.error('Error reverting cell from database:', result);
+                        return false;
                     }
+                } catch (error) {
+                    console.error('Error communicating with server during undo:', error);
+                    return false;
                 }
-                
-                return false;
             }
             return false;
         }
@@ -448,52 +428,55 @@
         // Redo the next action
         async function redoAction() {
             if (currentStateIndex < stateHistory.length - 1) {
-                // Restore the UI state to the next state first
-                const success = restoreStateFromHistory(currentStateIndex + 1);
+                const nextState = stateHistory[currentStateIndex + 1].boardState;
                 
-                if (success) {
-                    // Now update the database to match the restored state
-                    try {
-                        // Collect all currently revealed cells to send to the backend
-                        const revealedCells = [];
-                        for (let i = 0; i < ROWS; i++) {
-                            for (let j = 0; j < COLS; j++) {
-                                if (board[i][j].isRevealed) {
-                                    revealedCells.push({
-                                        row: i,
-                                        col: j,
-                                        value: board[i][j].value
-                                    });
-                                }
-                            }
+                // Get the difference between current and next state to know which cells to open again
+                const cellsToOpen = [];
+                
+                for (let i = 0; i < ROWS; i++) {
+                    for (let j = 0; j < COLS; j++) {
+                        // If the next state has a cell revealed but current state doesn't, or values differ
+                        const isCurrentlyRevealed = currentStateIndex >= 0 && 
+                            stateHistory[currentStateIndex] && 
+                            stateHistory[currentStateIndex].boardState[i][j].isRevealed;
+                            
+                        if (nextState[i][j].isRevealed && !isCurrentlyRevealed) {
+                            cellsToOpen.push({
+                                row: i,
+                                col: j,
+                                value: nextState[i][j].value
+                            });
                         }
-                        
-                        const response = await fetch('/api/set_opened_cells', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify({
-                                session_id: sessionId,
-                                round_num: 1,
-                                opened_cells: revealedCells
-                            })
-                        });
-                        
-                        const result = await response.json();
-                        
-                        if (result.status !== 'success') {
-                            console.error('Error updating database to match restored state:', result);
-                        }
-                        
-                        return true;
-                    } catch (error) {
-                        console.error('Error communicating with server during redo:', error);
-                        return true; // Return true since UI was restored even if DB sync failed
                     }
                 }
                 
-                return false;
+                // Update the database with the new opened cells state
+                try {
+                    const response = await fetch('/api/set_opened_cells', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            session_id: sessionId,
+                            round_num: 1,
+                            opened_cells: cellsToOpen
+                        })
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.status === 'success') {
+                        // Now restore the UI state
+                        return restoreStateFromHistory(currentStateIndex + 1);
+                    } else {
+                        console.error('Error setting cells in database:', result);
+                        return false;
+                    }
+                } catch (error) {
+                    console.error('Error communicating with server during redo:', error);
+                    return false;
+                }
             }
             return false;
         }
@@ -1138,10 +1121,9 @@
         // Load revealed cells from the database
         async function loadRevealedCells() {
             try {
-                // Save the current state (before revealing any cells) to history
-                // This ensures we can undo to the state where no cells were revealed
-                saveStateToHistory();
-                
+            // Save the current state (before revealing any cells) to history
+            // This ensures we can undo to the state where no cells were revealed
+            saveStateToHistory();
                 const response = await fetch(`/api/get_opened_cells?session_id=${sessionId}&round_num=1`);
 
                 if (response.ok) {
@@ -1169,13 +1151,13 @@
                             }
                         }
                     }
+                    
+                    // After loading revealed cells, save the state to history
+                    saveStateToHistory();
                 }
             } catch (error) {
                 console.error('Error loading revealed cells:', error);
             }
-            
-            // After loading revealed cells (or if none were loaded), save the current state to history
-            saveStateToHistory();
         }
 
 
