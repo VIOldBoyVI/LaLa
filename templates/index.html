@@ -319,6 +319,8 @@
                 }
             }
             
+            console.log('Saving state to history, open cells count:', openCellsCount, 'current state index:', currentStateIndex, 'history length before:', stateHistory.length);
+            
             // Create a deep copy of the current board state
             const boardState = [];
             for (let i = 0; i < ROWS; i++) {
@@ -344,10 +346,13 @@
             // Update the state count by open cells
             stateCountByOpenCells = openCellsCount;
             
+            console.log('Saved state, new current state index:', currentStateIndex, 'history length after:', stateHistory.length);
+            
             // Limit history size to prevent memory issues
             if (stateHistory.length > 50) {
                 stateHistory.shift(); // Remove the oldest state
                 currentStateIndex = stateHistory.length - 1;
+                console.log('History limited, new current state index:', currentStateIndex);
             }
             
             // Update undo/redo button states
@@ -356,12 +361,15 @@
         
         // Restore a state from history
         function restoreStateFromHistory(index) {
+            console.log('Restoring state from history, index:', index, 'current state index before:', currentStateIndex, 'state history length:', stateHistory.length);
             if (index < 0 || index >= stateHistory.length) {
+                console.log('Cannot restore state, index out of bounds');
                 return false;
             }
             
             const stateEntry = stateHistory[index];
             const state = stateEntry.boardState;
+            console.log('State to restore has', stateEntry.openCellsCount, 'open cells');
             
             // Update the board state
             for (let i = 0; i < ROWS; i++) {
@@ -388,12 +396,14 @@
             
             currentStateIndex = index;
             stateCountByOpenCells = stateEntry.openCellsCount; // Update the open cells count
+            console.log('Restored state, new current state index:', currentStateIndex, 'open cells count:', stateCountByOpenCells);
             updateHistoryButtons();
             return true;
         }
         
         // Undo the last action
         async function undoAction() {
+            console.log('Undo action called, current state index:', currentStateIndex, 'state history length:', stateHistory.length);
             if (currentStateIndex > 0) {
                 // First revert the last opened cell in the database
                 try {
@@ -409,10 +419,13 @@
                     });
                     
                     const result = await response.json();
+                    console.log('Undo API response:', result);
                     
                     if (result.status === 'success' || result.status === 'no_cells_to_revert') {
                         // Now restore the UI state to the previous state (one less open cell)
-                        return restoreStateFromHistory(currentStateIndex - 1);
+                        const success = restoreStateFromHistory(currentStateIndex - 1);
+                        console.log('Restore state result:', success, 'new state index:', currentStateIndex);
+                        return success;
                     } else {
                         console.error('Error reverting cell from database:', result);
                         return false;
@@ -422,11 +435,13 @@
                     return false;
                 }
             }
+            console.log('Cannot undo, current state index is:', currentStateIndex);
             return false;
         }
         
         // Redo the next action
         async function redoAction() {
+            console.log('Redo action called, current state index:', currentStateIndex, 'state history length:', stateHistory.length);
             if (currentStateIndex < stateHistory.length - 1) {
                 const nextState = stateHistory[currentStateIndex + 1].boardState;
 
@@ -450,6 +465,8 @@
                     }
                 }
 
+                console.log('Cells to open for redo:', cellsToOpen);
+
                 // Update the database with the new opened cells state
                 try {
                     const response = await fetch('/api/set_opened_cells', {
@@ -465,10 +482,13 @@
                     });
 
                     const result = await response.json();
+                    console.log('Redo API response:', result);
 
                     if (result.status === 'success') {
                         // Now restore the UI state
-                        return restoreStateFromHistory(currentStateIndex + 1);
+                        const success = restoreStateFromHistory(currentStateIndex + 1);
+                        console.log('Redo restore state result:', success, 'new state index:', currentStateIndex);
+                        return success;
                     } else {
                         console.error('Error setting cells in database:', result);
                         return false;
@@ -478,6 +498,7 @@
                     return false;
                 }
             }
+            console.log('Cannot redo, current state index is:', currentStateIndex, 'history length:', stateHistory.length);
             return false;
         }
         
@@ -508,16 +529,16 @@
         });
 
         // Add event listener for Undo button
-        document.getElementById('undoBtn').addEventListener('click', function() {
-            if (undoAction()) {
-                saveGameState(); // Save the restored state to the backend
+        document.getElementById('undoBtn').addEventListener('click', async function() {
+            if (await undoAction()) {
+                await saveGameState(); // Save the restored state to the backend
             }
         });
 
         // Add event listener for Redo button
-        document.getElementById('redoBtn').addEventListener('click', function() {
-            if (redoAction()) {
-                saveGameState(); // Save the restored state to the backend
+        document.getElementById('redoBtn').addEventListener('click', async function() {
+            if (await redoAction()) {
+                await saveGameState(); // Save the restored state to the backend
             }
         });
 
