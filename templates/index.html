@@ -643,7 +643,7 @@
             await loadConfig();
 
             try {
-                // Load state history from localStorage
+                // Load state history from localStorage first
                 loadStateHistory();
 
                 // First, try to load existing game state
@@ -1238,9 +1238,28 @@
             }
             
             // After loading revealed cells (or if none were loaded), save the current state to history
-            // This will be the initial state for undo/redo operations
+
+            // This will be the initial state for undo/redo operations after page load
+
+            // First, clear the history and start fresh with the current state
+
+            stateHistory = [];
+
+            currentStateIndex = -1;
+
+            stateCountByOpenCells = 0; // Reset counter
+
+            
+
+            // Save the current state as the baseline
+
             saveStateToHistory();
-        }
+
+            
+
+            // Update undo/redo button states after loading revealed cells
+
+            updateHistoryButtons();
 
 
 
