@@ -497,6 +497,18 @@
                     cell.style.backgroundColor = 'rgba(200, 200, 200, 0.3)';
                 }
             }
+            
+            // Highlight the column header
+            const colHeader = document.querySelector(`.col-label:nth-child(${col + 1})`);
+            if (colHeader) {
+                colHeader.style.backgroundColor = 'rgba(200, 200, 200, 0.3)';
+            }
+            
+            // Highlight the row header
+            const rowHeader = document.querySelector(`.row-label:nth-child(${row + 1})`);
+            if (rowHeader) {
+                rowHeader.style.backgroundColor = 'rgba(200, 200, 200, 0.3)';
+            }
         }
 
         // Remove row/column highlighting on hover
@@ -511,6 +523,24 @@
                     if (computedBg.includes('rgb(200, 200, 200)') || computedBg.includes('rgba(200, 200, 200, 0.3)')) {
                         cell.style.backgroundColor = '';
                     }
+                }
+            });
+            
+            // Remove highlights from column headers
+            const colHeaders = document.querySelectorAll('.col-label');
+            colHeaders.forEach(header => {
+                const computedBg = window.getComputedStyle(header).backgroundColor;
+                if (computedBg.includes('rgb(200, 200, 200)') || computedBg.includes('rgba(200, 200, 200, 0.3)')) {
+                    header.style.backgroundColor = '';
+                }
+            });
+            
+            // Remove highlights from row headers
+            const rowHeaders = document.querySelectorAll('.row-label');
+            rowHeaders.forEach(header => {
+                const computedBg = window.getComputedStyle(header).backgroundColor;
+                if (computedBg.includes('rgb(200, 200, 200)') || computedBg.includes('rgba(200, 200, 200, 0.3)')) {
+                    header.style.backgroundColor = '';
                 }
             });
         }
