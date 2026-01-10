@@ -8,18 +8,9 @@ __pycache__/
 # Environment
 .env
 .env.local
-.env.*
+*.env.*
 
 # Dependencies
 .venv/
 venv/
-.envrc
-
-# Logs
-*.log
-
-# Temporary files
-*.tmp
-*.swp
-*~
 ```
