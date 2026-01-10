@@ -307,46 +307,6 @@
         let currentStateIndex = -1; // Current position in the history
         let stateCountByOpenCells = 0; // Track the number of open cells in current state
         
-        // Load state history from localStorage if available
-        function loadStateHistory() {
-            const savedHistory = localStorage.getItem(`stateHistory_${sessionId}`);
-            const savedCurrentIndex = localStorage.getItem(`currentStateIndex_${sessionId}`);
-            
-            if (savedHistory && savedCurrentIndex !== null) {
-                try {
-                    stateHistory = JSON.parse(savedHistory);
-                    currentStateIndex = parseInt(savedCurrentIndex);
-                    console.log('Loaded state history from localStorage, length:', stateHistory.length, 'current index:', currentStateIndex);
-                    
-                    // Update state count by open cells from the current state
-                    if (currentStateIndex >= 0 && currentStateIndex < stateHistory.length) {
-                        stateCountByOpenCells = stateHistory[currentStateIndex].openCellsCount;
-                    }
-                } catch (e) {
-                    console.error('Error loading state history from localStorage:', e);
-                    stateHistory = [];
-                    currentStateIndex = -1;
-                }
-            }
-        }
-        
-        // Save state history to localStorage
-        function saveStateHistoryToLocalStorage() {
-            try {
-                localStorage.setItem(`stateHistory_${sessionId}`, JSON.stringify(stateHistory));
-                localStorage.setItem(`currentStateIndex_${sessionId}`, currentStateIndex.toString());
-                console.log('Saved state history to localStorage, length:', stateHistory.length, 'current index:', currentStateIndex);
-            } catch (e) {
-                console.error('Error saving state history to localStorage:', e);
-            }
-        }
-        
-        // Clear state history from localStorage
-        function clearStateHistoryFromLocalStorage() {
-            localStorage.removeItem(`stateHistory_${sessionId}`);
-            localStorage.removeItem(`currentStateIndex_${sessionId}`);
-        }
-        
         // Save initial state to history
         function saveStateToHistory() {
             // Count the number of open cells in current state
@@ -358,8 +318,6 @@
                     }
                 }
             }
-            
-            console.log('Saving state to history, open cells count:', openCellsCount, 'current state index:', currentStateIndex, 'history length before:', stateHistory.length);
             
             // Create a deep copy of the current board state
             const boardState = [];
@@ -386,17 +344,11 @@
             // Update the state count by open cells
             stateCountByOpenCells = openCellsCount;
             
-            console.log('Saved state, new current state index:', currentStateIndex, 'history length after:', stateHistory.length);
-            
             // Limit history size to prevent memory issues
             if (stateHistory.length > 50) {
                 stateHistory.shift(); // Remove the oldest state
                 currentStateIndex = stateHistory.length - 1;
-                console.log('History limited, new current state index:', currentStateIndex);
             }
-            
-            // Save history to localStorage
-            saveStateHistoryToLocalStorage();
             
             // Update undo/redo button states
             updateHistoryButtons();
@@ -404,15 +356,12 @@
         
         // Restore a state from history
         function restoreStateFromHistory(index) {
-            console.log('Restoring state from history, index:', index, 'current state index before:', currentStateIndex, 'state history length:', stateHistory.length);
             if (index < 0 || index >= stateHistory.length) {
-                console.log('Cannot restore state, index out of bounds');
                 return false;
             }
             
             const stateEntry = stateHistory[index];
             const state = stateEntry.boardState;
-            console.log('State to restore has', stateEntry.openCellsCount, 'open cells');
             
             // Update the board state
             for (let i = 0; i < ROWS; i++) {
@@ -439,18 +388,12 @@
             
             currentStateIndex = index;
             stateCountByOpenCells = stateEntry.openCellsCount; // Update the open cells count
-            console.log('Restored state, new current state index:', currentStateIndex, 'open cells count:', stateCountByOpenCells);
-            
-            // Save updated history to localStorage
-            saveStateHistoryToLocalStorage();
-            
             updateHistoryButtons();
             return true;
         }
         
         // Undo the last action
         async function undoAction() {
-            console.log('Undo action called, current state index:', currentStateIndex, 'state history length:', stateHistory.length);
             if (currentStateIndex > 0) {
                 // First revert the last opened cell in the database
                 try {
@@ -466,19 +409,10 @@
                     });
                     
                     const result = await response.json();
-                    console.log('Undo API response:', result);
                     
                     if (result.status === 'success' || result.status === 'no_cells_to_revert') {
                         // Now restore the UI state to the previous state (one less open cell)
-                        const success = restoreStateFromHistory(currentStateIndex - 1);
-                        console.log('Restore state result:', success, 'new state index:', currentStateIndex);
-                        
-                        // Save the restored state to the backend
-                        if (success) {
-                            await saveGameState();
-                        }
-                        
-                        return success;
+                        return restoreStateFromHistory(currentStateIndex - 1);
                     } else {
                         console.error('Error reverting cell from database:', result);
                         return false;
@@ -488,26 +422,24 @@
                     return false;
                 }
             }
-            console.log('Cannot undo, current state index is:', currentStateIndex);
             return false;
         }
         
         // Redo the next action
         async function redoAction() {
-            console.log('Redo action called, current state index:', currentStateIndex, 'state history length:', stateHistory.length);
             if (currentStateIndex < stateHistory.length - 1) {
                 const nextState = stateHistory[currentStateIndex + 1].boardState;
-
+                
                 // Get the difference between current and next state to know which cells to open again
                 const cellsToOpen = [];
-
+                
                 for (let i = 0; i < ROWS; i++) {
                     for (let j = 0; j < COLS; j++) {
                         // If the next state has a cell revealed but current state doesn't, or values differ
-                        const isCurrentlyRevealed = currentStateIndex >= 0 &&
-                            stateHistory[currentStateIndex] &&
+                        const isCurrentlyRevealed = currentStateIndex >= 0 && 
+                            stateHistory[currentStateIndex] && 
                             stateHistory[currentStateIndex].boardState[i][j].isRevealed;
-
+                            
                         if (nextState[i][j].isRevealed && !isCurrentlyRevealed) {
                             cellsToOpen.push({
                                 row: i,
@@ -517,9 +449,7 @@
                         }
                     }
                 }
-
-                console.log('Cells to open for redo:', cellsToOpen);
-
+                
                 // Update the database with the new opened cells state
                 try {
                     const response = await fetch('/api/set_opened_cells', {
@@ -533,21 +463,12 @@
                             opened_cells: cellsToOpen
                         })
                     });
-
+                    
                     const result = await response.json();
-                    console.log('Redo API response:', result);
-
+                    
                     if (result.status === 'success') {
                         // Now restore the UI state
-                        const success = restoreStateFromHistory(currentStateIndex + 1);
-                        console.log('Redo restore state result:', success, 'new state index:', currentStateIndex);
-                        
-                        // Save the restored state to the backend
-                        if (success) {
-                            await saveGameState();
-                        }
-                        
-                        return success;
+                        return restoreStateFromHistory(currentStateIndex + 1);
                     } else {
                         console.error('Error setting cells in database:', result);
                         return false;
@@ -557,7 +478,6 @@
                     return false;
                 }
             }
-            console.log('Cannot redo, current state index is:', currentStateIndex, 'history length:', stateHistory.length);
             return false;
         }
         
@@ -588,13 +508,17 @@
         });
 
         // Add event listener for Undo button
-        document.getElementById('undoBtn').addEventListener('click', async function() {
-            await undoAction(); // Execute undo action which includes saving state
+        document.getElementById('undoBtn').addEventListener('click', function() {
+            if (undoAction()) {
+                saveGameState(); // Save the restored state to the backend
+            }
         });
 
         // Add event listener for Redo button
-        document.getElementById('redoBtn').addEventListener('click', async function() {
-            await redoAction(); // Execute redo action which includes saving state
+        document.getElementById('redoBtn').addEventListener('click', function() {
+            if (redoAction()) {
+                saveGameState(); // Save the restored state to the backend
+            }
         });
 
         // Add event listener for Confirm Reset button
@@ -643,9 +567,6 @@
             await loadConfig();
 
             try {
-                // Load state history from localStorage first
-                loadStateHistory();
-
                 // First, try to load existing game state
                 const loadResponse = await fetch(`/api/load_state?session_id=${sessionId}`);
                 let existingState = null;
@@ -902,6 +823,9 @@
             if (cellData.isRevealed) {
                 return; // Cell already opened, do nothing
             }
+            
+            // Save current state to history before making changes
+            saveStateToHistory();
 
             // Mark the cell as opened in the database
             try {
@@ -928,8 +852,6 @@
                         cellElement.classList.add('revealed');
                         // Add number-cell class since all cells now contain numbers
                         cellElement.classList.add('number-cell');
-                        // Save current state to history after making changes
-                        saveStateToHistory();
                         return;
                     }
                 }
@@ -944,9 +866,6 @@
             cellElement.classList.add('number-cell');
 
             cellData.isRevealed = true;
-
-            // Save current state to history after making changes
-            saveStateToHistory();
 
             // All cells contain numbers (1-80) which represent questions
             await askQuestion(cellData.value);
@@ -995,9 +914,6 @@
             stateHistory = [];
             currentStateIndex = -1;
             stateCountByOpenCells = 0; // Reset the open cells count
-            
-            // Clear state history from localStorage
-            clearStateHistoryFromLocalStorage();
             
             // Create a fresh board with closed cells and new distribution of numbers and symbols
             await createFreshBoard();
@@ -1205,6 +1121,9 @@
         // Load revealed cells from the database
         async function loadRevealedCells() {
             try {
+            // Save the current state (before revealing any cells) to history
+            // This ensures we can undo to the state where no cells were revealed
+            saveStateToHistory();
                 const response = await fetch(`/api/get_opened_cells?session_id=${sessionId}&round_num=1`);
 
                 if (response.ok) {
@@ -1232,34 +1151,14 @@
                             }
                         }
                     }
+                    
+                    // After loading revealed cells, save the state to history
+                    saveStateToHistory();
                 }
             } catch (error) {
                 console.error('Error loading revealed cells:', error);
             }
-            
-            // After loading revealed cells (or if none were loaded), save the current state to history
-
-            // This will be the initial state for undo/redo operations after page load
-
-            // First, clear the history and start fresh with the current state
-
-            stateHistory = [];
-
-            currentStateIndex = -1;
-
-            stateCountByOpenCells = 0; // Reset counter
-
-            
-
-            // Save the current state as the baseline
-
-            saveStateToHistory();
-
-            
-
-            // Update undo/redo button states after loading revealed cells
-
-            updateHistoryButtons();
+        }
 
 
 
