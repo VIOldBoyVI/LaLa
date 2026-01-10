@@ -524,6 +524,74 @@ def get_opened_cells():
     return jsonify({'opened_cells': opened_cells})
 
 
+@app.route('/api/revert_last_opened_cell', methods=['POST'])
+def revert_last_opened_cell():
+    """Revert the last opened cell for the session"""
+    data = request.json
+    session_id = data.get('session_id')
+    round_num = data.get('round_num', 1)
+
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({'error': 'Database connection failed'}), 500
+    cursor = conn.cursor()
+
+    # Get the last opened cell for this session
+    cursor.execute('''
+        SELECT id, row_num, col_num FROM opened_cells
+        WHERE session_id = ? AND round_num = ?
+        ORDER BY created_at DESC
+        LIMIT 1
+    ''', (session_id, round_num))
+    
+    last_cell = cursor.fetchone()
+    
+    if last_cell:
+        # Delete the last opened cell record
+        cell_id, row_num, col_num = last_cell
+        cursor.execute('DELETE FROM opened_cells WHERE id = ?', (cell_id,))
+        conn.commit()
+        
+        conn.close()
+        
+        return jsonify({
+            'status': 'success',
+            'reverted_cell': {'id': cell_id, 'row': row_num, 'col': col_num}
+        })
+    else:
+        conn.close()
+        return jsonify({'status': 'no_cells_to_revert'})
+
+
+@app.route('/api/set_opened_cells', methods=['POST'])
+def set_opened_cells():
+    """Set the opened cells state for a session"""
+    data = request.json
+    session_id = data.get('session_id')
+    round_num = data.get('round_num', 1)
+    opened_cells = data.get('opened_cells', [])
+    
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({'error': 'Database connection failed'}), 500
+    cursor = conn.cursor()
+
+    # Clear all opened cells for this session and round
+    cursor.execute('DELETE FROM opened_cells WHERE session_id = ? AND round_num = ?', (session_id, round_num))
+    
+    # Insert the provided opened cells
+    for cell in opened_cells:
+        cursor.execute('''
+            INSERT INTO opened_cells (session_id, round_num, row_num, col_num, cell_value) 
+            VALUES (?, ?, ?, ?, ?)
+        ''', (session_id, round_num, cell['row'], cell['col'], cell['value']))
+    
+    conn.commit()
+    conn.close()
+    
+    return jsonify({'status': 'success'})
+
+
 @app.route('/api/clear_opened_cells', methods=['POST'])
 def clear_opened_cells():
     data = request.json
