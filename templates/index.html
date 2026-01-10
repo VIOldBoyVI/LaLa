@@ -176,6 +176,32 @@
             transform: rotate(90deg);
         }
 
+        .action-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .action-btn:hover {
+            background-color: #1976D2;
+            transform: scale(1.1);
+        }
+
+        .action-btn:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
         .cell-header {
             background-color: rgba(0, 0, 0, 0.3);
             cursor: default;
@@ -223,7 +249,24 @@
         <h1>ЛА-ЛА-ГЕЙМ Викторина с элементами караоке!</h1>
     </div>
 
-    <button id="resetBtn" class="reset-btn" title="Начать заново">↻</button>
+    <div style="position: absolute; top: 20px; right: 20px; display: flex; flex-direction: column; align-items: flex-end; gap: 10px;">
+        <div style="display: flex; gap: 10px;">
+            <button id="undoBtn" class="action-btn" title="Отменить действие">↺</button>
+            <button id="redoBtn" class="action-btn" title="Повторить действие">↻</button>
+        </div>
+        <button id="resetBtn" class="reset-btn" title="Начать заново">↻</button>
+    </div>
+    
+    <!-- Confirmation Modal -->
+    <div id="confirmationModal" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 2000; align-items: center; justify-content: center;">
+        <div class="modal-content" style="background: white; padding: 20px; border-radius: 10px; text-align: center; max-width: 400px; width: 80%;">
+            <h3>Вы уверены, что необходимо сбросить все выбранные значения и начать игру сначала?!</h3>
+            <div style="margin-top: 20px;">
+                <button id="confirmReset" class="cta-button" style="background-color: #4CAF50; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin-right: 10px;">Да</button>
+                <button id="cancelReset" class="default-button" style="background-color: #ccc; color: black; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">Отмена</button>
+            </div>
+        </div>
+    </div>
 
     <div class="game-container">
 
@@ -258,6 +301,180 @@
         let rowLabels = document.getElementById('rowLabels');
 
         let currentQuestionId = null;
+        
+        // State history for undo/redo functionality
+        let stateHistory = []; // Array to store game states
+        let currentStateIndex = -1; // Current position in the history
+        
+        // Save initial state to history
+        function saveStateToHistory() {
+            // Create a deep copy of the current board state
+            const boardState = [];
+            for (let i = 0; i < ROWS; i++) {
+                boardState[i] = [];
+                for (let j = 0; j < COLS; j++) {
+                    boardState[i][j] = {
+                        value: board[i][j].value,
+                        isRevealed: board[i][j].isRevealed
+                    };
+                }
+            }
+            
+            // Keep only the history up to the current state (remove redo history)
+            stateHistory = stateHistory.slice(0, currentStateIndex + 1);
+            
+            // Add the new state to history
+            stateHistory.push(boardState);
+            currentStateIndex = stateHistory.length - 1;
+            
+            // Limit history size to prevent memory issues
+            if (stateHistory.length > 50) {
+                stateHistory.shift(); // Remove the oldest state
+                currentStateIndex = stateHistory.length - 1;
+            }
+            
+            // Update undo/redo button states
+            updateHistoryButtons();
+        }
+        
+        // Restore a state from history
+        function restoreStateFromHistory(index) {
+            if (index < 0 || index >= stateHistory.length) {
+                return false;
+            }
+            
+            const state = stateHistory[index];
+            
+            // Update the board state
+            for (let i = 0; i < ROWS; i++) {
+                for (let j = 0; j < COLS; j++) {
+                    if (board[i] && board[i][j]) {
+                        board[i][j].value = state[i][j].value;
+                        board[i][j].isRevealed = state[i][j].isRevealed;
+                        
+                        // Update the visual representation
+                        const cellElement = document.querySelector(`.cell[data-row="${i}"][data-col="${j}"]`);
+                        if (cellElement) {
+                            if (state[i][j].isRevealed) {
+                                cellElement.textContent = state[i][j].value;
+                                cellElement.classList.add('revealed');
+                                cellElement.classList.add('number-cell');
+                            } else {
+                                cellElement.textContent = '';
+                                cellElement.classList.remove('revealed', 'number-cell');
+                            }
+                        }
+                    }
+                }
+            }
+            
+            currentStateIndex = index;
+            updateHistoryButtons();
+            return true;
+        }
+        
+        // Undo the last action
+        async function undoAction() {
+            if (currentStateIndex > 0) {
+                // First revert the last opened cell in the database
+                try {
+                    const response = await fetch('/api/revert_last_opened_cell', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            session_id: sessionId,
+                            round_num: 1
+                        })
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.status === 'success' || result.status === 'no_cells_to_revert') {
+                        // Now restore the UI state
+                        return restoreStateFromHistory(currentStateIndex - 1);
+                    } else {
+                        console.error('Error reverting cell from database:', result);
+                        return false;
+                    }
+                } catch (error) {
+                    console.error('Error communicating with server during undo:', error);
+                    return false;
+                }
+            }
+            return false;
+        }
+        
+        // Redo the next action
+        async function redoAction() {
+            if (currentStateIndex < stateHistory.length - 1) {
+                const nextState = stateHistory[currentStateIndex + 1];
+                
+                // Get the difference between current and next state to know which cells to open again
+                const cellsToOpen = [];
+                
+                for (let i = 0; i < ROWS; i++) {
+                    for (let j = 0; j < COLS; j++) {
+                        // If the next state has a cell revealed but current state doesn't, or values differ
+                        const isCurrentlyRevealed = currentStateIndex >= 0 && 
+                            stateHistory[currentStateIndex] && 
+                            stateHistory[currentStateIndex][i][j].isRevealed;
+                            
+                        if (nextState[i][j].isRevealed && !isCurrentlyRevealed) {
+                            cellsToOpen.push({
+                                row: i,
+                                col: j,
+                                value: nextState[i][j].value
+                            });
+                        }
+                    }
+                }
+                
+                // Update the database with the new opened cells state
+                try {
+                    const response = await fetch('/api/set_opened_cells', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            session_id: sessionId,
+                            round_num: 1,
+                            opened_cells: cellsToOpen
+                        })
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.status === 'success') {
+                        // Now restore the UI state
+                        return restoreStateFromHistory(currentStateIndex + 1);
+                    } else {
+                        console.error('Error setting cells in database:', result);
+                        return false;
+                    }
+                } catch (error) {
+                    console.error('Error communicating with server during redo:', error);
+                    return false;
+                }
+            }
+            return false;
+        }
+        
+        // Update the enabled/disabled state of undo/redo buttons
+        function updateHistoryButtons() {
+            const undoBtn = document.getElementById('undoBtn');
+            const redoBtn = document.getElementById('redoBtn');
+            
+            if (undoBtn) {
+                undoBtn.disabled = currentStateIndex <= 0;
+            }
+            
+            if (redoBtn) {
+                redoBtn.disabled = currentStateIndex >= stateHistory.length - 1;
+            }
+        }
 
 
 
@@ -267,8 +484,42 @@
         // Initialize the game
         initGame();
 
-        // Add event listener for Reset button
-        document.getElementById('resetBtn').addEventListener('click', startNewGame);
+        // Add event listener for Reset button - now shows confirmation dialog
+        document.getElementById('resetBtn').addEventListener('click', function() {
+            document.getElementById('confirmationModal').style.display = 'flex';
+        });
+
+        // Add event listener for Undo button
+        document.getElementById('undoBtn').addEventListener('click', function() {
+            if (undoAction()) {
+                saveGameState(); // Save the restored state to the backend
+            }
+        });
+
+        // Add event listener for Redo button
+        document.getElementById('redoBtn').addEventListener('click', function() {
+            if (redoAction()) {
+                saveGameState(); // Save the restored state to the backend
+            }
+        });
+
+        // Add event listener for Confirm Reset button
+        document.getElementById('confirmReset').addEventListener('click', function() {
+            document.getElementById('confirmationModal').style.display = 'none';
+            startNewGame();
+        });
+
+        // Add event listener for Cancel Reset button
+        document.getElementById('cancelReset').addEventListener('click', function() {
+            document.getElementById('confirmationModal').style.display = 'none';
+        });
+
+        // Close modal if clicked outside the content
+        document.getElementById('confirmationModal').addEventListener('click', function(event) {
+            if (event.target === this) {
+                this.style.display = 'none';
+            }
+        });
 
         async function loadConfig() {
             try {
@@ -554,6 +805,9 @@
             if (cellData.isRevealed) {
                 return; // Cell already opened, do nothing
             }
+            
+            // Save current state to history before making changes
+            saveStateToHistory();
 
             // Mark the cell as opened in the database
             try {
@@ -638,6 +892,10 @@
             // Clear selected cell
             selectedCell = null;
             
+            // Reset state history
+            stateHistory = [];
+            currentStateIndex = -1;
+            
             // Create a fresh board with closed cells and new distribution of numbers and symbols
             await createFreshBoard();
 
@@ -662,6 +920,9 @@
             } catch (error) {
                 console.error('Error clearing opened cells:', error);
             }
+            
+            // Save initial state to history after creating fresh board
+            saveStateToHistory();
         }
 
         async function createFreshBoard() {
@@ -862,6 +1123,9 @@
                             }
                         }
                     }
+                    
+                    // After loading revealed cells, save the state to history
+                    saveStateToHistory();
                 }
             } catch (error) {
                 console.error('Error loading revealed cells:', error);
