@@ -487,6 +487,7 @@
             const redoBtn = document.getElementById('redoBtn');
             
             if (undoBtn) {
+                // Enable undo button if there's a previous state to go back to
                 undoBtn.disabled = currentStateIndex <= 0;
             }
             
@@ -1016,6 +1017,9 @@
                     gameBoard.appendChild(cell);
                 }
             }
+            
+            // Save initial state to history after creating the board
+            saveStateToHistory();
         }
 
         // Create board from a saved layout
@@ -1082,6 +1086,9 @@
 
             // Save the layout to database if it's not already there
             await saveBoardLayout();
+            
+            // Save initial state to history after creating the board from layout
+            saveStateToHistory();
         }
 
         // Save the current board layout to the database
@@ -1114,6 +1121,9 @@
         // Load revealed cells from the database
         async function loadRevealedCells() {
             try {
+            // Save the current state (before revealing any cells) to history
+            // This ensures we can undo to the state where no cells were revealed
+            saveStateToHistory();
                 const response = await fetch(`/api/get_opened_cells?session_id=${sessionId}&round_num=1`);
 
                 if (response.ok) {
