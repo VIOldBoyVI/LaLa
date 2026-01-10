@@ -632,6 +632,12 @@
 
 
         async function startNewGame() {
+            // Remove any existing highlights
+            removeHighlight();
+            
+            // Clear selected cell
+            selectedCell = null;
+            
             // Create a fresh board with closed cells and new distribution of numbers and symbols
             await createFreshBoard();
 
@@ -718,16 +724,14 @@
                     
                     // Add mouseover event to highlight row and column
                     cell.addEventListener('mouseover', () => {
-                        if (!cell.classList.contains('revealed') && !selectedCell) {
+                        if (!cell.classList.contains('revealed')) {
                             highlightRowColOnHover(i, j);
                         }
                     });
                     
                     // Add mouseout event to remove highlight
                     cell.addEventListener('mouseout', () => {
-                        if (!selectedCell) {
-                            removeHighlightOnHover();
-                        }
+                        removeHighlightOnHover();
                     });
 
                     gameBoard.appendChild(cell);
@@ -783,16 +787,14 @@
                     
                     // Add mouseover event to highlight row and column
                     cell.addEventListener('mouseover', () => {
-                        if (!cell.classList.contains('revealed') && !selectedCell) {
+                        if (!cell.classList.contains('revealed')) {
                             highlightRowColOnHover(i, j);
                         }
                     });
                     
                     // Add mouseout event to remove highlight
                     cell.addEventListener('mouseout', () => {
-                        if (!selectedCell) {
-                            removeHighlightOnHover();
-                        }
+                        removeHighlightOnHover();
                     });
 
                     gameBoard.appendChild(cell);
