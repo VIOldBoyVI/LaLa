@@ -357,11 +357,162 @@
             }
         }
 
+        // Variables to track highlighted row/column and selected cell
+        let highlightedRow = null;
+        let highlightedCol = null;
+        let selectedCell = null; // Track the currently selected cell
+
         // Handle cell click
         function handleCellClick(row, col) {
             if (board[row][col].isRevealed) return;
 
-            openCell(row, col);
+            // If this is the same cell that was previously selected, toggle to open it
+            if (selectedCell && selectedCell.row === row && selectedCell.col === col) {
+                // Second click on the same cell - open it
+                removeHighlight();
+                hideCoordinates(row, col);
+                openCell(row, col);
+                selectedCell = null; // Clear selection
+            } else {
+                // First click on a new cell - highlight and show coordinates
+                // Remove previous selection and highlighting
+                if (selectedCell) {
+                    removeHighlight();
+                    hideCoordinates(selectedCell.row, selectedCell.col);
+                }
+                
+                // Set the new selected cell
+                selectedCell = { row: row, col: col };
+                
+                // Highlight the row and column
+                highlightRowCol(row, col);
+                
+                // Show coordinates on the cell
+                showCoordinates(row, col);
+            }
+        }
+
+        // Highlight row and column
+        function highlightRowCol(row, col) {
+            // Remove previous highlights
+            removeHighlight();
+            
+            // Store current highlighted row and column
+            highlightedRow = row;
+            highlightedCol = col;
+            
+            // Highlight the entire row
+            for (let j = 0; j < COLS; j++) {
+                const cell = document.querySelector(`.cell[data-row="${row}"][data-col="${j}"]`);
+                if (cell && !cell.classList.contains('revealed')) {
+                    cell.style.backgroundColor = 'rgba(255, 255, 0, 0.5)';
+                }
+            }
+            
+            // Highlight the entire column
+            for (let i = 0; i < ROWS; i++) {
+                const cell = document.querySelector(`.cell[data-row="${i}"][data-col="${col}"]`);
+                if (cell && !cell.classList.contains('revealed')) {
+                    cell.style.backgroundColor = 'rgba(255, 255, 0, 0.5)';
+                }
+            }
+        }
+
+        // Remove row/column highlighting
+        function removeHighlight() {
+            if (highlightedRow !== null && highlightedCol !== null) {
+                // Remove row highlight
+                for (let j = 0; j < COLS; j++) {
+                    const cell = document.querySelector(`.cell[data-row="${highlightedRow}"][data-col="${j}"]`);
+                    if (cell && !cell.classList.contains('revealed')) {
+                        cell.style.backgroundColor = '';
+                    }
+                }
+                
+                // Remove column highlight
+                for (let i = 0; i < ROWS; i++) {
+                    const cell = document.querySelector(`.cell[data-row="${i}"][data-col="${highlightedCol}"]`);
+                    if (cell && !cell.classList.contains('revealed')) {
+                        cell.style.backgroundColor = '';
+                    }
+                }
+                
+                highlightedRow = null;
+                highlightedCol = null;
+            }
+        }
+
+        // Show coordinates on the cell
+        function showCoordinates(row, col) {
+            const cellElement = document.querySelector(`.cell[data-row="${row}"][data-col="${col}"]`);
+            if (cellElement) {
+                // Calculate the column letter (A-J)
+                const colLetter = String.fromCharCode(65 + col);
+                // Calculate the row number (1-8)
+                const rowNum = row + 1;
+                
+                // Store original content to restore later
+                cellElement.dataset.originalContent = cellElement.textContent;
+                
+                // Display coordinates
+                cellElement.textContent = `${colLetter}${rowNum}`;
+                cellElement.style.color = 'white';
+                cellElement.style.fontWeight = 'bold';
+            }
+        }
+
+        // Hide coordinates and restore original content
+        function hideCoordinates(row, col) {
+            const cellElement = document.querySelector(`.cell[data-row="${row}"][data-col="${col}"]`);
+            if (cellElement) {
+                // Restore original content if it was stored
+                if (cellElement.dataset.originalContent !== undefined) {
+                    cellElement.textContent = cellElement.dataset.originalContent;
+                    delete cellElement.dataset.originalContent;
+                } else {
+                    cellElement.textContent = '';
+                }
+                cellElement.style.color = '';
+                cellElement.style.fontWeight = '';
+            }
+        }
+
+        // Highlight row and column on hover (only when no cell is selected)
+        function highlightRowColOnHover(row, col) {
+            // Remove previous hover highlights
+            removeHighlightOnHover();
+            
+            // Highlight the entire row
+            for (let j = 0; j < COLS; j++) {
+                const cell = document.querySelector(`.cell[data-row="${row}"][data-col="${j}"]`);
+                if (cell && !cell.classList.contains('revealed')) {
+                    cell.style.backgroundColor = 'rgba(200, 200, 200, 0.3)';
+                }
+            }
+            
+            // Highlight the entire column
+            for (let i = 0; i < ROWS; i++) {
+                const cell = document.querySelector(`.cell[data-row="${i}"][data-col="${col}"]`);
+                if (cell && !cell.classList.contains('revealed')) {
+                    cell.style.backgroundColor = 'rgba(200, 200, 200, 0.3)';
+                }
+            }
+        }
+
+        // Remove row/column highlighting on hover
+        function removeHighlightOnHover() {
+            // Remove highlights from all cells
+            const allCells = document.querySelectorAll('.cell');
+            allCells.forEach(cell => {
+                // Only remove hover highlights (light gray), don't remove selected highlights (yellow)
+                if (!cell.classList.contains('revealed')) {
+                    // Check if the background color is the hover highlight color
+                    const computedBg = window.getComputedStyle(cell).backgroundColor;
+                    if (computedBg.includes('rgb(200, 200, 200)') || computedBg.includes('rgba(200, 200, 200, 0.3)')) {
+                        cell.style.backgroundColor = '';
+                    }
+                }
+            });
         }
 
         // Open a specific cell
@@ -534,6 +685,20 @@
                     cell.addEventListener('click', () => {
                         handleCellClick(i, j);
                     });
+                    
+                    // Add mouseover event to highlight row and column
+                    cell.addEventListener('mouseover', () => {
+                        if (!cell.classList.contains('revealed') && !selectedCell) {
+                            highlightRowColOnHover(i, j);
+                        }
+                    });
+                    
+                    // Add mouseout event to remove highlight
+                    cell.addEventListener('mouseout', () => {
+                        if (!selectedCell) {
+                            removeHighlightOnHover();
+                        }
+                    });
 
                     gameBoard.appendChild(cell);
                 }
@@ -584,6 +749,20 @@
 
                     cell.addEventListener('click', () => {
                         handleCellClick(i, j);
+                    });
+                    
+                    // Add mouseover event to highlight row and column
+                    cell.addEventListener('mouseover', () => {
+                        if (!cell.classList.contains('revealed') && !selectedCell) {
+                            highlightRowColOnHover(i, j);
+                        }
+                    });
+                    
+                    // Add mouseout event to remove highlight
+                    cell.addEventListener('mouseout', () => {
+                        if (!selectedCell) {
+                            removeHighlightOnHover();
+                        }
                     });
 
                     gameBoard.appendChild(cell);
