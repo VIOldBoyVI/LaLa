@@ -59,7 +59,10 @@ def init_db() -> None:
         session.close()
     except Exception as e:
         logger.error(f"Database initialization error: {e}")
-        raise
+        # Don't raise the exception here so the app can continue
+        # This allows fallback to SQLite if MySQL is not available
+        print(f"Warning: Could not initialize MySQL database: {e}")
+        print("Application will continue without MySQL database")
 
 @app.route('/')
 def index():

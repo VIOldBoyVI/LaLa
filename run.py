@@ -35,8 +35,15 @@ def main():
             # Continue to SQLite version
             mysql_configured = False
         except Exception as e:
-            print(f"Error starting MySQL version: {e}")
-            sys.exit(1)
+            # Check if it's specifically a MySQL connection error
+            error_msg = str(e).lower()
+            if "can't connect to mysql" in error_msg or "connection refused" in error_msg or "2003" in error_msg:
+                print(f"MySQL server not available: {e}")
+                print("Falling back to SQLite version...")
+                mysql_configured = False
+            else:
+                print(f"Error starting MySQL version: {e}")
+                sys.exit(1)
     
     if not mysql_configured:
         print("Launching SQLite version (default)...")

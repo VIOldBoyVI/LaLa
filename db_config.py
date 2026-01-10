@@ -78,19 +78,19 @@ class DatabaseConfig:
             'autocommit': False,  # We'll handle transactions manually
         }
         
-        # Add SSL config if available
-        if self.ssl_ca or self.ssl_cert or self.ssl_key:
-            ssl_config = {}
-            if self.ssl_ca:
-                ssl_config['ssl_ca'] = self.ssl_ca
-            if self.ssl_cert:
-                ssl_config['ssl_cert'] = self.ssl_cert
-            if self.ssl_key:
-                ssl_config['ssl_key'] = self.ssl_key
-            config['ssl'] = ssl_config
-            if self.ssl_mode.upper() in ['REQUIRED', 'VERIFY_CA', 'VERIFY_IDENTITY']:
-                config['ssl_disabled'] = False
-                config['use_unicode'] = True
+        # Add SSL config if available (using individual parameters instead of 'ssl' dict)
+        if self.ssl_ca:
+            config['ssl_ca'] = self.ssl_ca
+        if self.ssl_cert:
+            config['ssl_cert'] = self.ssl_cert
+        if self.ssl_key:
+            config['ssl_key'] = self.ssl_key
+        
+        # Handle SSL mode settings
+        if self.ssl_mode.upper() in ['REQUIRED', 'VERIFY_CA', 'VERIFY_IDENTITY']:
+            config['use_unicode'] = True
+        elif self.ssl_mode.upper() == 'DISABLED':
+            config['ssl_disabled'] = True
                 
         return config
 
